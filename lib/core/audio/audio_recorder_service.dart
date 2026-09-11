@@ -26,7 +26,8 @@ class AudioFrame {
 /// Service managing real-time microphone capture, streaming,
 /// rolling buffer windowing, and log-mel spectrogram extraction.
 class AudioRecorderService {
-  final AudioRecorder _recorder = AudioRecorder();
+  AudioRecorder? _audioRecorder;
+  AudioRecorder get _recorder => _audioRecorder ??= AudioRecorder();
   final AudioRingBuffer _ringBuffer = AudioRingBuffer(
     capacity: AppConstants.windowSizeSamples,
   );
@@ -266,8 +267,8 @@ class AudioRecorderService {
     await _recordSub?.cancel();
     _recordSub = null;
     try {
-      if (await _recorder.isRecording()) {
-        await _recorder.stop();
+      if (_audioRecorder != null && await _audioRecorder!.isRecording()) {
+        await _audioRecorder!.stop();
       }
     } catch (_) {}
   }
@@ -275,6 +276,6 @@ class AudioRecorderService {
   void dispose() {
     stopListening();
     _frameController.close();
-    _recorder.dispose();
+    _audioRecorder?.dispose();
   }
 }

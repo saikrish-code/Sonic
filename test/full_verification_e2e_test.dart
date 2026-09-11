@@ -71,6 +71,9 @@ class TestAudioRecorderService extends AudioRecorderService {
 
   @override
   Future<void> stopListening() async {}
+
+  @override
+  void dispose() {}
 }
 
 class TestBleService extends BleService {

@@ -33,17 +33,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final vibService = ref.read(vibrationServiceProvider);
 
     return Scaffold(
+      backgroundColor: SonicColors.background,
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text(
+          'Settings',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: SonicColors.textPrimary,
+            letterSpacing: -0.4,
+          ),
+        ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         physics: const BouncingScrollPhysics(),
         children: [
           // Section 1: Navigation shortcuts
           _SettingsActionTile(
-            icon: Icons.fingerprint,
-            iconColor: SonicColors.primary,
+            icon: Icons.fingerprint_rounded,
+            iconColor: SonicColors.primaryLight,
             title: 'Manage Taught Sounds',
             subtitle: 'Rename, adjust sensitivity, or remove custom prototypes',
             onTap: () {
@@ -52,22 +61,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               );
             },
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _SettingsActionTile(
-            icon: Icons.bluetooth,
-            iconColor: SonicColors.alertGreen,
+            icon: Icons.bluetooth_rounded,
+            iconColor: const Color(0xFF8D7AFF),
             title: 'Wearable Earpiece (BLE)',
-            subtitle: 'Pair future Sonic tactile companion or test mock peripheral',
+            subtitle: 'Pair future tactile companion or simulate earpiece',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const PairDeviceScreen()),
               );
             },
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _SettingsActionTile(
-            icon: Icons.science,
-            iconColor: SonicColors.alertAmber,
+            icon: Icons.science_outlined,
+            iconColor: SonicColors.secondary,
             title: 'Sound Simulator Lab',
             subtitle: 'Test vibrations, notifications, and 10s debouncing',
             onTap: () {
@@ -77,24 +86,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             },
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
           // Section 2: Background Listening
           const Text(
             'BACKGROUND LISTENING',
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
               color: SonicColors.textMuted,
               letterSpacing: 1.0,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: SonicColors.cardBg,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(color: SonicColors.surfaceBorder),
             ),
             child: Column(
@@ -110,13 +119,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             'Continuous Background Listening',
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Keep listening for emergency alarms when app is minimized',
+                            'Keep listening for vital sounds when app is minimized',
                             style: TextStyle(
                               fontSize: 12,
                               color: SonicColors.textSecondary,
@@ -127,7 +136,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     Switch(
                       value: isBackgroundActive,
-                      activeThumbColor: SonicColors.primary,
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: SonicColors.primary,
+                      inactiveTrackColor: SonicColors.surfaceLight,
                       onChanged: (val) {
                         ref.read(backgroundListeningProvider.notifier).state = val;
                       },
@@ -138,16 +149,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: SonicColors.surfaceLight,
-                    borderRadius: BorderRadius.circular(10),
+                    color: SonicColors.surface,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.info_outline, size: 18, color: SonicColors.textMuted),
+                      Icon(Icons.info_outline_rounded, size: 18, color: SonicColors.textMuted),
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Platform note: Android utilizes a dedicated microphone foreground service. On iOS, continuous background mic capture is restricted by Apple policy when the screen is locked.',
+                          'Platform note: Android utilizes a dedicated microphone foreground service. On iOS, background microphone access follows iOS privacy guidelines.',
                           style: TextStyle(
                             fontSize: 11,
                             color: SonicColors.textMuted,
@@ -162,31 +173,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
           // Section 3: Vibration Pattern Tester
           const Text(
             'VIBRATION PATTERN TESTER',
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
               color: SonicColors.textMuted,
               letterSpacing: 1.0,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: SonicColors.cardBg,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(color: SonicColors.surfaceBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Tap to feel distinct tactile vibrations for each sound priority:',
+                  'Tap to feel distinct tactile vibrations for each category:',
                   style: TextStyle(fontSize: 13, color: SonicColors.textSecondary),
                 ),
                 const SizedBox(height: 14),
@@ -206,7 +217,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     _VibrationTestChip(
                       label: 'Doorbell (3 Pulses)',
-                      color: SonicColors.alertAmber,
+                      color: SonicColors.primaryLight,
                       onTap: () => vibService.triggerVibrationForCategory('doorbell'),
                     ),
                     _VibrationTestChip(
@@ -220,30 +231,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
           // Section 4: Per-Category Sensitivity Sliders
           const Text(
-            'CATEGORY SENSITIVITY SLIDERS',
+            'CATEGORY SENSITIVITY THRESHOLDS',
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
               color: SonicColors.textMuted,
               letterSpacing: 1.0,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: SonicColors.cardBg,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(color: SonicColors.surfaceBorder),
             ),
             child: Column(
               children: _categorySensitivities.entries.map((entry) {
-                final cat = SoundCategories.getByKey(entry.key);
-                final val = entry.value;
+                final category = SoundCategories.getByKey(entry.key);
+                final currentVal = entry.value;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
@@ -251,35 +262,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(cat.icon, size: 18, color: cat.color),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              cat.label,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: SonicColors.textPrimary,
+                          Row(
+                            children: [
+                              Icon(category.icon, size: 16, color: category.color),
+                              const SizedBox(width: 8),
+                              Text(
+                                category.label,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                           Text(
-                            '${(val * 100).toInt()}% Cutoff',
-                            style: TextStyle(
-                              fontSize: 12,
+                            '${(currentVal * 100).toInt()}%',
+                            style: const TextStyle(
+                              fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: cat.color,
+                              color: SonicColors.primaryLight,
                             ),
                           ),
                         ],
                       ),
                       Slider(
-                        value: val,
+                        value: currentVal,
                         min: 0.50,
                         max: 0.95,
-                        divisions: 18,
-                        activeColor: cat.color,
+                        divisions: 9,
                         onChanged: (newVal) {
                           setState(() {
                             _categorySensitivities[entry.key] = newVal;
@@ -293,49 +306,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
-          const SizedBox(height: 24),
-
-          // Section 5: Privacy Notice
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: SonicColors.cardBg,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: SonicColors.surfaceBorder),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.lock, color: SonicColors.alertGreen, size: 26),
-                SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '100% On-Device AI Privacy',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: SonicColors.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Microphone audio is processed entirely in phone memory via local log-mel spectrograms and quantized models. Raw audio is never uploaded to any cloud server.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: SonicColors.textSecondary,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
         ],
       ),
     );
@@ -361,12 +332,12 @@ class _SettingsActionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: SonicColors.cardBg,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: SonicColors.surfaceBorder),
         ),
         child: Row(
@@ -375,7 +346,7 @@ class _SettingsActionTile extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: iconColor.withAlpha(35),
+                color: iconColor.withAlpha(30),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: iconColor, size: 22),
@@ -389,11 +360,11 @@ class _SettingsActionTile extends StatelessWidget {
                     title,
                     style: const TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     subtitle,
                     style: const TextStyle(
@@ -404,7 +375,11 @@ class _SettingsActionTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: SonicColors.textMuted),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: SonicColors.textSecondary,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -427,17 +402,20 @@ class _VibrationTestChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return ActionChip(
       onPressed: onTap,
-      avatar: Icon(Icons.vibration, size: 16, color: color),
+      avatar: Icon(Icons.vibration_rounded, size: 14, color: color),
       label: Text(
         label,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: color,
+          color: SonicColors.textPrimary,
         ),
       ),
-      backgroundColor: color.withAlpha(30),
-      side: BorderSide(color: color.withAlpha(120)),
+      backgroundColor: SonicColors.surfaceLight,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: SonicColors.surfaceBorder),
+      ),
     );
   }
 }

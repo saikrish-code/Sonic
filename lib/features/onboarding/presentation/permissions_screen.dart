@@ -160,18 +160,20 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
               // Continue Button
               SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: 54,
                 child: ElevatedButton(
                   onPressed: _continue,
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
                         allGranted ? SonicColors.primary : SonicColors.surfaceLight,
-                    foregroundColor:
-                        allGranted ? Colors.black : SonicColors.textPrimary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(27),
+                    ),
                   ),
                   child: Text(
                     allGranted ? 'Enter Sonic' : 'Continue Anyway (Demo Mode)',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                   ),
                 ),
               ),

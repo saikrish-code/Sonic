@@ -42,7 +42,7 @@ class _ListeningPulseWidgetState extends State<ListeningPulseWidget>
   @override
   Widget build(BuildContext context) {
     final activeColor = widget.isListening
-        ? (widget.volume > 0.4 ? SonicColors.alertAmber : SonicColors.primary)
+        ? (widget.volume > 0.4 ? SonicColors.primaryLight : SonicColors.primary)
         : SonicColors.textMuted;
 
     return GestureDetector(
@@ -68,16 +68,16 @@ class _ListeningPulseWidgetState extends State<ListeningPulseWidget>
                     shape: BoxShape.circle,
                     gradient: widget.isListening
                         ? const LinearGradient(
-                            colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+                            colors: [Color(0xFF2E2254), Color(0xFF16122B)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           )
                         : const LinearGradient(
-                            colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                            colors: [Color(0xFF1E1A33), Color(0xFF100E20)],
                           ),
                     border: Border.all(
                       color: activeColor.withAlpha(200),
-                      width: 2.5,
+                      width: 2.0,
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -91,7 +91,7 @@ class _ListeningPulseWidgetState extends State<ListeningPulseWidget>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        widget.isListening ? Icons.mic : Icons.mic_off,
+                        widget.isListening ? Icons.mic_rounded : Icons.mic_off_rounded,
                         color: activeColor,
                         size: 38,
                       ),
@@ -137,19 +137,17 @@ class _PulseWavePainter extends CustomPainter {
     if (!isListening) return;
 
     final center = Offset(size.width / 2, size.height / 2);
-    const baseRadius = 60.0;
-    const maxRadius = 125.0;
+    final maxRadius = size.width / 2;
 
-    // 3 concentric animated ripples
     for (int i = 0; i < 3; i++) {
-      final waveProgress = (progress + (i / 3.0)) % 1.0;
-      final radius = baseRadius + (maxRadius - baseRadius) * waveProgress + (volume * 15.0);
-      final alpha = ((1.0 - waveProgress) * 160 * (0.6 + volume * 0.4)).toInt().clamp(0, 255);
+      final ringProgress = (progress + (i * 0.33)) % 1.0;
+      final radius = 60.0 + ((maxRadius - 60.0) * ringProgress) + (volume * 18);
+      final alpha = ((1.0 - ringProgress) * 75).toInt().clamp(0, 255);
 
       final paint = Paint()
         ..color = color.withAlpha(alpha)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0 * (1.0 - waveProgress) + 0.5;
+        ..strokeWidth = 1.5;
 
       canvas.drawCircle(center, radius, paint);
     }
