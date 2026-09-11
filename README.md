@@ -1,4 +1,4 @@
-# soundsense
+# Sonic
 
 A new Flutter project.
 
