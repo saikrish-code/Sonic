@@ -42,7 +42,6 @@ class _HeadsUpAlertCard extends StatefulWidget {
 class _HeadsUpAlertCardState extends State<_HeadsUpAlertCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
-  late Animation<double> _slideAnim;
   late Animation<double> _pulseAnim;
 
   @override
@@ -52,11 +51,6 @@ class _HeadsUpAlertCardState extends State<_HeadsUpAlertCard>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     )..repeat(reverse: true);
-
-    _slideAnim = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOutBack,
-    );
 
     _pulseAnim = Tween<double>(begin: 0.96, end: 1.04).animate(_animController);
   }

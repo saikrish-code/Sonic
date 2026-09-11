@@ -69,7 +69,7 @@ class HistoryScreen extends ConsumerWidget {
                     Container(
                       width: 80,
                       height: 80,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: SonicColors.surfaceLight,
                         shape: BoxShape.circle,
                       ),
@@ -253,12 +253,14 @@ class _AlertHistoryCard extends ConsumerWidget {
                   if (alert.prototypeId != null) {
                     await db.recordThumbsUpForPrototype(alert.prototypeId!);
                   }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Thanks for the feedback!'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Thanks for the feedback!'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(

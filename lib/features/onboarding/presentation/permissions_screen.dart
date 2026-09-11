@@ -137,11 +137,11 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: SonicColors.alertOrange.withAlpha(120)),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      const Icon(Icons.warning_amber, color: SonicColors.alertOrange),
-                      const SizedBox(width: 10),
-                      const Expanded(
+                      Icon(Icons.warning_amber, color: SonicColors.alertOrange),
+                      SizedBox(width: 10),
+                      Expanded(
                         child: Text(
                           'If a permission was blocked, please enable it in your device settings to allow Sonic to listen.',
                           style: TextStyle(fontSize: 12, color: SonicColors.textPrimary),
@@ -149,7 +149,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                       ),
                       TextButton(
                         onPressed: openAppSettings,
-                        child: const Text('Settings'),
+                        child: Text('Settings'),
                       ),
                     ],
                   ),

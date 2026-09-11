@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/sonic_colors.dart';
+import '../../../../core/theme/sonic_icons.dart';
 import '../../teach_sound/presentation/teach_sound_screen.dart';
 
 /// Live diagnostic screen visualizing real-time Cosine Similarity scores
@@ -166,7 +167,7 @@ class SimilarityDebugScreen extends ConsumerWidget {
                                   border: Border.all(color: protoColor, width: 1.5),
                                 ),
                                 child: Icon(
-                                  IconData(proto.iconCode, fontFamily: 'MaterialIcons'),
+                                  getDynamicIcon(proto.iconCode),
                                   color: protoColor,
                                   size: 22,
                                 ),

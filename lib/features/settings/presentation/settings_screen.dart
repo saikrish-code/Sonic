@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/ml/sound_labels.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/sonic_colors.dart';
@@ -128,7 +127,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     Switch(
                       value: isBackgroundActive,
-                      activeColor: SonicColors.primary,
+                      activeThumbColor: SonicColors.primary,
                       onChanged: (val) {
                         ref.read(backgroundListeningProvider.notifier).state = val;
                       },

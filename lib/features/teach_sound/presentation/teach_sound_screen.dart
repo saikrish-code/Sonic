@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import '../../../../core/audio/mel_spectrogram.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/database/sonic_database.dart';
 import '../../../../core/ml/embedding_engine.dart';
@@ -179,20 +180,16 @@ class _TeachSoundScreenState extends ConsumerState<TeachSoundScreen> {
 
     try {
       final classifier = ref.read(soundClassifierProvider);
-      final audioService = ref.read(audioRecorderServiceProvider);
 
       // Extract embedding for each sample
+      final specExtractor = MelSpectrogramExtractor();
       final sampleEmbeddings = <List<double>>[];
       for (final sample in _recordedSamples) {
         // Compute spectrogram for this sample
-        final specExtractor = audioService.recordSampleForTeaching;
-        // Run classifier directly
-        final tempFrames = ref.read(audioRecorderServiceProvider);
-        final spec = classifier.classify(
-          // Use classifier's fallback or native logic on spectrogram
-          [List<double>.generate(64, (i) => 0.5)],
-        );
-        sampleEmbeddings.add(spec.embedding);
+        final spec = specExtractor.extract(sample);
+        // Run classifier to extract embedding
+        final result = classifier.classify(spec);
+        sampleEmbeddings.add(result.embedding);
       }
 
       // Average vectors and L2 normalize
@@ -400,9 +397,9 @@ class _TeachSoundScreenState extends ConsumerState<TeachSoundScreen> {
                 itemCount: _availableColors.length,
                 itemBuilder: (context, idx) {
                   final color = _availableColors[idx];
-                  final isSelected = color.value == _selectedColorValue;
+                  final isSelected = color.toARGB32() == _selectedColorValue;
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedColorValue = color.value),
+                    onTap: () => setState(() => _selectedColorValue = color.toARGB32()),
                     child: Container(
                       width: 36,
                       height: 36,
@@ -444,9 +441,9 @@ class _TeachSoundScreenState extends ConsumerState<TeachSoundScreen> {
                     color: SonicColors.textPrimary,
                   ),
                 ),
-                Text(
+                const Text(
                   'Min. ${AppConstants.minSamplesToTeach} required',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: SonicColors.textMuted,
                   ),

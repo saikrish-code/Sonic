@@ -138,10 +138,10 @@ class HomeScreen extends ConsumerWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Live Audio Waveform',
                       style: TextStyle(
                         fontSize: 14,
@@ -256,7 +256,7 @@ class _LatestDetectionCard extends StatelessWidget {
             Container(
               width: 48,
               height: 48,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: SonicColors.surfaceLight,
                 shape: BoxShape.circle,
               ),
