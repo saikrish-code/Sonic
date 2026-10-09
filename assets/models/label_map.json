@@ -1,0 +1,22 @@
+{
+  "0": "smoke_alarm",
+  "1": "fire_alarm",
+  "2": "siren",
+  "3": "baby_crying",
+  "4": "glass_breaking",
+  "5": "doorbell",
+  "6": "door_knock",
+  "7": "dog_bark",
+  "8": "phone_ringing",
+  "9": "name_calling",
+  "10": "car_horn",
+  "11": "appliance_beep",
+  "12": "water_running",
+  "13": "thunderstorm",
+  "14": "alarm_clock",
+  "15": "cat_meow",
+  "16": "footsteps",
+  "17": "coughing",
+  "18": "snoring",
+  "19": "danger_explosion"
+}
