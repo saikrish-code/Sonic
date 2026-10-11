@@ -114,14 +114,24 @@ class SoundCategories {
       description: 'Canine vocalization or aggressive barking.',
     ),
     SoundCategory(
+      key: 'phone_ringing',
+      label: 'Phone Ringing',
+      icon: Icons.ring_volume,
+      color: SonicColors.alertBlue,
+      urgency: AlertUrgency.warning,
+      defaultThreshold: 0.70,
+      vibrationPattern: [0, 350, 150, 350],
+      description: 'Landline or smartphone incoming call ringtone.',
+    ),
+    SoundCategory(
       key: 'name_calling',
-      label: 'Talking',
-      icon: Icons.forum_rounded,
-      color: Color(0xFF90BE6D),
-      urgency: AlertUrgency.info,
+      label: 'Voice / Name Shout',
+      icon: Icons.record_voice_over,
+      color: SonicColors.primary,
+      urgency: AlertUrgency.warning,
       defaultThreshold: 0.70,
       vibrationPattern: [0, 200, 100, 200, 100, 400],
-      description: 'Human vocal speech, conversation, or talking nearby.',
+      description: 'Nearby person calling out or shouting attention.',
     ),
     SoundCategory(
       key: 'car_horn',
@@ -194,14 +204,14 @@ class SoundCategories {
       description: 'Approaching pacing or walking sounds nearby.',
     ),
     SoundCategory(
-      key: 'talking',
-      label: 'Talking',
-      icon: Icons.forum_rounded,
+      key: 'coughing',
+      label: 'Coughing',
+      icon: Icons.sick,
       color: Color(0xFF90BE6D),
       urgency: AlertUrgency.info,
       defaultThreshold: 0.70,
       vibrationPattern: [0, 150, 80, 150],
-      description: 'Human vocal speech, conversation, or talking nearby.',
+      description: 'Human coughing or throat clearing.',
     ),
     SoundCategory(
       key: 'snoring',
@@ -226,9 +236,6 @@ class SoundCategories {
   ];
 
   static SoundCategory getByKey(String key) {
-    if (key == 'coughing' || key == 'name_calling') {
-      return getByKey('talking');
-    }
     return all.firstWhere(
       (c) => c.key == key,
       orElse: () => all.first,

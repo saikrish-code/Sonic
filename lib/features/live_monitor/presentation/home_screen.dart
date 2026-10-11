@@ -406,7 +406,9 @@ class HomeScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            latestDetection != null && latestDetection.topCategoryKey != 'ambient_silence'
+                            latestDetection != null &&
+                                    latestDetection.topCategoryKey != 'ambient_silence' &&
+                                    latestDetection.confidence >= 0.70
                                 ? latestDetection.topCategoryLabel
                                 : 'quiet ambient',
                             style: const TextStyle(
@@ -439,7 +441,9 @@ class HomeScreen extends ConsumerWidget {
                             textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
-                                latestDetection != null && latestDetection.topCategoryKey != 'ambient_silence'
+                                latestDetection != null &&
+                                        latestDetection.topCategoryKey != 'ambient_silence' &&
+                                        latestDetection.confidence >= 0.70
                                     ? '${(latestDetection.confidence * 100).toInt()}%'
                                     : 'Safe',
                                 style: const TextStyle(
@@ -451,7 +455,9 @@ class HomeScreen extends ConsumerWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                latestDetection != null && latestDetection.topCategoryKey != 'ambient_silence'
+                                latestDetection != null &&
+                                        latestDetection.topCategoryKey != 'ambient_silence' &&
+                                        latestDetection.confidence >= 0.70
                                     ? 'Conf'
                                     : 'Acoustic',
                                 style: const TextStyle(
@@ -676,90 +682,14 @@ class _LatestDetectionCard extends StatelessWidget {
       return _buildNormalCard(context, 'Environment Quiet', 'Microphone analyzing rolling 1-second acoustic frames');
     }
 
-    final cat = SoundCategories.getByKey(latest.topCategoryKey);
-    final confPercent = (latest.confidence * 100).toInt();
-
-    // "Talking" shows regardless of confidence (no threshold)
-    final isTalking = latest.topCategoryKey == 'talking' || latest.topCategoryKey == 'name_calling';
-
-    // All other classes show "Normal" below 70% confidence
-    if (!isTalking && latest.confidence < 0.70) {
+    if (latest.confidence < 0.70) {
       return _buildNormalCard(context, 'Normal', 'No significant sound detected');
     }
 
-    // Talking is shown with its category info but no confidence cutoff
-    if (isTalking) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: SonicColors.cardBg,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: cat.color.withAlpha(160), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: cat.color.withAlpha(50),
-              blurRadius: 20,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: cat.color.withAlpha(40),
-                shape: BoxShape.circle,
-                border: Border.all(color: cat.color, width: 1.5),
-              ),
-              child: Icon(cat.icon, color: cat.color, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Talking',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: cat.color,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      Text(
-                        DateFormat('HH:mm:ss').format(latest.timestamp),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: SonicColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Talking',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    final cat = SoundCategories.getByKey(latest.topCategoryKey);
+    final confPercent = (latest.confidence * 100).toInt();
 
-    // Normal warning display for other sounds >= 70%
+    // Normal warning display for sounds >= 70%
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
