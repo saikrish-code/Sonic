@@ -613,11 +613,17 @@ class _ActionPill extends StatelessWidget {
                 color: SonicColors.textPrimary,
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _LatestDetectionCard extends StatelessWidget {
+  final dynamic latest;
+
+  const _LatestDetectionCard({required this.latest});
 
   Widget _buildNormalCard(BuildContext context, String title, String subtitle) {
     return Container(
@@ -663,13 +669,6 @@ class _ActionPill extends StatelessWidget {
       ),
     );
   }
-}
-}
-
-class _LatestDetectionCard extends StatelessWidget {
-  final dynamic latest;
-
-  const _LatestDetectionCard({required this.latest});
 
   @override
   Widget build(BuildContext context) {
