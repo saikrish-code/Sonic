@@ -322,33 +322,42 @@ class SoundClassifier {
       probabilities[SoundCategories.all[i].key] = smoothedProbs[i];
     }
 
-    // For untrained classes in model_info.json, supplement with acoustic fallback
-    // if native model didn't detect a confident sound.
-    // Untrained: smoke_alarm, fire_alarm, doorbell, phone_ringing, name_calling, appliance_beep
-    const untrainedKeys = {
-      'smoke_alarm',
-      'fire_alarm',
-      'doorbell',
-      'phone_ringing',
-      'name_calling',
-      'appliance_beep',
+    // The 14 trained classes from model_info.json trained_slots (indices 0-19):
+    // 2:siren, 3:baby_crying, 4:glass_breaking, 6:door_knock, 7:dog_bark,
+    // 10:car_horn, 12:water_running, 13:thunderstorm, 14:alarm_clock, 15:cat_meow,
+    // 16:footsteps, 17:coughing, 18:snoring, 19:danger_explosion
+    const trainedKeys = {
+      'siren',
+      'baby_crying',
+      'glass_breaking',
+      'door_knock',
+      'dog_bark',
+      'car_horn',
+      'water_running',
+      'thunderstorm',
+      'alarm_clock',
+      'cat_meow',
+      'footsteps',
+      'coughing',
+      'snoring',
+      'danger_explosion',
     };
 
-    final fallbackResult = _runAcousticFallback(spectrogram);
-    for (final key in untrainedKeys) {
-      if ((probabilities[key] ?? 0.0) <= 0.01) {
-        probabilities[key] = fallbackResult.classProbabilities[key] ?? 0.0;
+    // Only consider trained classes for alert-worthy predictions
+    String topKey = 'ambient_silence';
+    double topProb = 0.0;
+    for (final key in trainedKeys) {
+      final prob = probabilities[key] ?? 0.0;
+      if (prob > topProb) {
+        topProb = prob;
+        topKey = key;
       }
     }
 
-    // Find top prediction
-    String topKey = SoundCategories.all.first.key;
-    double topProb = -1.0;
-    for (final entry in probabilities.entries) {
-      if (entry.value > topProb) {
-        topProb = entry.value;
-        topKey = entry.key;
-      }
+    // Only show alert when a trained class reaches >= 70%
+    if (topProb < 0.70) {
+      topKey = 'ambient_silence';
+      topProb = 0.0;
     }
 
     return ClassificationResult(
