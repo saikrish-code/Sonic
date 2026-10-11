@@ -169,10 +169,12 @@ class DetectionCoordinator {
         }
       }
 
-      // 3. Evaluate General Sound Detection if confident
+      // 3. Evaluate General Sound Detection if confident (>= 70% for all non-talking sounds)
       final cat = SoundCategories.getByKey(classification.topCategoryKey);
-      if (classification.confidence >= cat.defaultThreshold &&
-          classification.topCategoryKey != 'ambient_silence') {
+      final isTalking = classification.topCategoryKey == 'talking' || classification.topCategoryKey == 'name_calling';
+      if (classification.confidence >= 0.70 &&
+          classification.topCategoryKey != 'ambient_silence' &&
+          !isTalking) {
         await alertService.triggerAlert(
           soundKey: cat.key,
           soundName: cat.label,

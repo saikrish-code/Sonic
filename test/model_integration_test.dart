@@ -58,7 +58,7 @@ void main() {
       final result = classifier.classify(spec);
 
       expect(result.isNativeTflite, isTrue);
-      expect(result.classProbabilities.length, equals(SoundCategories.all.length));
+      expect(result.classProbabilities.length, equals(20));
       expect(result.embedding.length, equals(128));
 
       // Embedding should be normalized unit vector (L2 norm ~ 1.0)

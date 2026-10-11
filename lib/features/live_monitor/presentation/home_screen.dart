@@ -613,11 +613,57 @@ class _ActionPill extends StatelessWidget {
                 color: SonicColors.textPrimary,
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _buildNormalCard(BuildContext context, String title, String subtitle) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: SonicColors.cardBg,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: SonicColors.surfaceBorder, width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.hearing_rounded,
+            color: SonicColors.textSecondary,
+            size: 26,
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: SonicColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: SonicColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 }
 
 class _LatestDetectionCard extends StatelessWidget {
@@ -628,40 +674,82 @@ class _LatestDetectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (latest == null || latest.topCategoryKey == 'ambient_silence') {
+      return _buildNormalCard(context, 'Environment Quiet', 'Microphone analyzing rolling 1-second acoustic frames');
+    }
+
+    final cat = SoundCategories.getByKey(latest.topCategoryKey);
+    final confPercent = (latest.confidence * 100).toInt();
+
+    // "Talking" shows regardless of confidence (no threshold)
+    final isTalking = latest.topCategoryKey == 'talking' || latest.topCategoryKey == 'name_calling';
+
+    // All other classes show "Normal" below 70% confidence
+    if (!isTalking && latest.confidence < 0.70) {
+      return _buildNormalCard(context, 'Normal', 'No significant sound detected');
+    }
+
+    // Talking is shown with its category info but no confidence cutoff
+    if (isTalking) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: SonicColors.cardBg,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: SonicColors.surfaceBorder, width: 1),
-        ),
-        child: const Row(
-          children: [
-            Icon(
-              Icons.hearing_rounded,
-              color: SonicColors.textSecondary,
-              size: 26,
+          border: Border.all(color: cat.color.withAlpha(160), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: cat.color.withAlpha(50),
+              blurRadius: 20,
+              spreadRadius: 1,
             ),
-            SizedBox(width: 16),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: cat.color.withAlpha(40),
+                shape: BoxShape.circle,
+                border: Border.all(color: cat.color, width: 1.5),
+              ),
+              child: Icon(cat.icon, color: cat.color, size: 24),
+            ),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Environment Quiet',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: SonicColors.textPrimary,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Talking',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: cat.color,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('HH:mm:ss').format(latest.timestamp),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: SonicColors.textMuted,
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
-                    'Microphone analyzing rolling 1-second acoustic frames',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: SonicColors.textSecondary,
+                    'Talking',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -672,9 +760,7 @@ class _LatestDetectionCard extends StatelessWidget {
       );
     }
 
-    final cat = SoundCategories.getByKey(latest.topCategoryKey);
-    final confPercent = (latest.confidence * 100).toInt();
-
+    // Normal warning display for other sounds >= 70%
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
