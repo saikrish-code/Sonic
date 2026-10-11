@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundsense/core/audio/mel_spectrogram.dart';
 import 'package:soundsense/core/ml/embedding_engine.dart';
 import 'package:soundsense/core/ml/sound_classifier.dart';
-import 'package:soundsense/core/ml/sound_labels.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 void main() {
