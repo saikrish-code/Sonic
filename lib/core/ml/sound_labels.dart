@@ -204,14 +204,14 @@ class SoundCategories {
       description: 'Approaching pacing or walking sounds nearby.',
     ),
     SoundCategory(
-      key: 'coughing',
-      label: 'Coughing',
-      icon: Icons.sick,
+      key: 'talking',
+      label: 'Talking',
+      icon: Icons.forum_rounded,
       color: Color(0xFF90BE6D),
       urgency: AlertUrgency.info,
       defaultThreshold: 0.75,
       vibrationPattern: [0, 150, 80, 150],
-      description: 'Sudden human coughing or choking sound.',
+      description: 'Human vocal speech, conversation, or talking nearby.',
     ),
     SoundCategory(
       key: 'snoring',
@@ -236,6 +236,9 @@ class SoundCategories {
   ];
 
   static SoundCategory getByKey(String key) {
+    if (key == 'coughing') {
+      return getByKey('talking');
+    }
     return all.firstWhere(
       (c) => c.key == key,
       orElse: () => all.first,

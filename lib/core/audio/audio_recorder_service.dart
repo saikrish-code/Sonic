@@ -12,6 +12,7 @@ class AudioFrame {
   final double decibels;
   final double normalizedVolume;
   final List<List<double>> spectrogram;
+  final List<List<double>> rawSpectrogram;
   final DateTime timestamp;
 
   AudioFrame({
@@ -19,8 +20,9 @@ class AudioFrame {
     required this.decibels,
     required this.normalizedVolume,
     required this.spectrogram,
+    List<List<double>>? rawSpectrogram,
     required this.timestamp,
-  });
+  }) : rawSpectrogram = rawSpectrogram ?? spectrogram;
 }
 
 /// Service managing real-time microphone capture, streaming,
@@ -163,6 +165,7 @@ class AudioRecorderService {
       decibels: _ringBuffer.currentDecibels,
       normalizedVolume: _ringBuffer.normalizedVolume,
       spectrogram: normSpec,
+      rawSpectrogram: rawSpec,
       timestamp: DateTime.now(),
     );
 

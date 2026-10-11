@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ class ClassificationResult {
   final List<double> embedding;
   final Map<String, double> classProbabilities;
   final DateTime timestamp;
+  final bool isNativeTflite;
 
   const ClassificationResult({
     required this.topCategoryKey,
@@ -22,6 +24,7 @@ class ClassificationResult {
     required this.embedding,
     required this.classProbabilities,
     required this.timestamp,
+    this.isNativeTflite = false,
   });
 
   bool get isConfident => confidence >= 0.65;
@@ -30,33 +33,56 @@ class ClassificationResult {
 /// Dual-output General Sound Classifier running quantized TFLite inference
 /// with an on-device spectral feature fallback engine.
 class SoundClassifier {
+  static const int expectedFrames = 61;
+  static const int melBins = 64;
+  static const int smoothingWindowSize = 3;
+
   Interpreter? _interpreter;
   bool _isInitialized = false;
   bool _useFallback = false;
+  final List<List<double>> _probHistory = [];
 
   bool get isInitialized => _isInitialized;
   bool get isUsingFallback => _useFallback;
+  bool get hasNativeInterpreter => _interpreter != null;
+
+  void resetSmoothing() {
+    _probHistory.clear();
+  }
 
   Future<void> init() async {
-    if (_isInitialized) return;
+    if (_isInitialized && _interpreter != null) return;
 
     try {
-      // Check if sound_classifier.tflite asset is bundled
       const assetPath = 'assets/models/sound_classifier.tflite';
+      Uint8List? buffer;
       try {
-        await rootBundle.load(assetPath);
-        _interpreter = await Interpreter.fromAsset(assetPath);
+        final byteData = await rootBundle.load(assetPath);
+        buffer = byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
+        );
+      } catch (bundleErr) {
+        debugPrint('[SonicML] rootBundle load failed for $assetPath: $bundleErr. Trying File system...');
+        final file = File(assetPath);
+        if (file.existsSync()) {
+          buffer = await file.readAsBytes();
+        }
+      }
+
+      if (buffer != null && buffer.length > 100000) {
+        _interpreter = Interpreter.fromBuffer(buffer);
         _isInitialized = true;
         _useFallback = false;
-        debugPrint('[SonicML] Successfully loaded native TFLite sound_classifier.tflite');
+        debugPrint('[SonicML] Successfully loaded native TFLite sound_classifier.tflite (${buffer.length} bytes)');
         return;
-      } catch (e) {
-        debugPrint('[SonicML] Native TFLite asset not found or not loadable ($e). Using acoustic fallback engine.');
+      } else {
+        debugPrint('[SonicML] Native TFLite asset not found or empty. Using acoustic fallback engine.');
         _useFallback = true;
         _isInitialized = true;
       }
     } catch (e) {
-      debugPrint('[SonicML] Classifier init error: $e');
+      debugPrint('[SonicML] Classifier init error ($e). Using acoustic fallback engine.');
       _useFallback = true;
       _isInitialized = true;
     }
@@ -215,6 +241,7 @@ class SoundClassifier {
         // Alternating mid-frequency ring tone
         return midEnergy * 2.5 + temporalVariability * 1.8;
       case 'name_calling':
+      case 'talking':
         // Human vocal speech range (mid frequencies)
         return midEnergy * 2.0;
       case 'car_horn':
@@ -235,18 +262,33 @@ class SoundClassifier {
   }
 
   ClassificationResult _runNativeTflite(List<List<double>> spectrogram) {
-    // Model shapes: Input [1, frames, mels]
+    // Model shapes: Input [1, 61, 64]
     // Output 0: [1, 20] classes
     // Output 1: [1, 128] embeddings
-    final numFrames = spectrogram.length;
+    final List<List<double>> windowFrames;
+    if (spectrogram.length > expectedFrames) {
+      // Take the most recent 61 frames
+      windowFrames = spectrogram.sublist(spectrogram.length - expectedFrames);
+    } else {
+      windowFrames = spectrogram;
+    }
 
-    final input = List.generate(
-      1,
-      (_) => List.generate(
-        numFrames,
-        (f) => List<double>.from(spectrogram[f]),
-      ),
-    );
+    final formattedInput = List.generate(1, (_) {
+      return List.generate(expectedFrames, (f) {
+        if (f < windowFrames.length) {
+          final frame = windowFrames[f];
+          if (frame.length == melBins) {
+            return List<double>.from(frame);
+          } else if (frame.length > melBins) {
+            return frame.sublist(0, melBins);
+          } else {
+            return [...frame, ...List<double>.filled(melBins - frame.length, -6.0)];
+          }
+        } else {
+          return List<double>.filled(melBins, -6.0);
+        }
+      });
+    });
 
     final outputClasses = List.generate(1, (_) => List<double>.filled(20, 0.0));
     final outputEmbeddings = List.generate(1, (_) => List<double>.filled(128, 0.0));
@@ -256,16 +298,50 @@ class SoundClassifier {
       1: outputEmbeddings,
     };
 
-    _interpreter!.runForMultipleInputs([input], outputs);
+    _interpreter!.runForMultipleInputs([formattedInput], outputs);
 
-    final probsList = outputClasses[0];
+    final rawProbs = outputClasses[0];
     final embedding = EmbeddingEngine.l2Normalize(outputEmbeddings[0]);
 
-    final probabilities = <String, double>{};
-    for (int i = 0; i < SoundCategories.all.length && i < probsList.length; i++) {
-      probabilities[SoundCategories.all[i].key] = probsList[i];
+    // Average the last 3 outputs (recommended in model_info.json)
+    _probHistory.add(List<double>.from(rawProbs));
+    if (_probHistory.length > smoothingWindowSize) {
+      _probHistory.removeAt(0);
     }
 
+    final smoothedProbs = List<double>.filled(rawProbs.length, 0.0);
+    for (final past in _probHistory) {
+      for (int i = 0; i < rawProbs.length; i++) {
+        smoothedProbs[i] += past[i] / _probHistory.length;
+      }
+    }
+
+    // Map probabilities to category keys
+    final probabilities = <String, double>{};
+    for (int i = 0; i < SoundCategories.all.length && i < smoothedProbs.length; i++) {
+      probabilities[SoundCategories.all[i].key] = smoothedProbs[i];
+    }
+
+    // For untrained classes in model_info.json, supplement with acoustic fallback
+    // if native model didn't detect a confident sound.
+    // Untrained: smoke_alarm, fire_alarm, doorbell, phone_ringing, name_calling, appliance_beep
+    const untrainedKeys = {
+      'smoke_alarm',
+      'fire_alarm',
+      'doorbell',
+      'phone_ringing',
+      'name_calling',
+      'appliance_beep',
+    };
+
+    final fallbackResult = _runAcousticFallback(spectrogram);
+    for (final key in untrainedKeys) {
+      if ((probabilities[key] ?? 0.0) <= 0.01) {
+        probabilities[key] = fallbackResult.classProbabilities[key] ?? 0.0;
+      }
+    }
+
+    // Find top prediction
     String topKey = SoundCategories.all.first.key;
     double topProb = -1.0;
     for (final entry in probabilities.entries) {
@@ -282,6 +358,7 @@ class SoundClassifier {
       embedding: embedding,
       classProbabilities: probabilities,
       timestamp: DateTime.now(),
+      isNativeTflite: true,
     );
   }
 

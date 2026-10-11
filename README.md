@@ -113,6 +113,10 @@ Sonic's interface is organized across purpose-built screens adhering to accessib
 - **Real-Time Cosine Similarity Gauges**: Live similarity metric gauges for each taught prototype compared against incoming ambient sound embeddings.
 - **Dynamic Threshold Cutoff Line**: Visual indicators showing how close the current ambient room sound is to tripping the prototype's threshold.
 
+## Wearable Hardware Recommendation
+
+See [docs/hardware-components.md](docs/hardware-components.md) for the revised component list, quantities, INR planning ranges, power/haptic compatibility checks, and BLE integration notes. The phone remains the microphone and classifier; the wearable receives alert commands over BLE and drives haptics.
+
 ### BLE Device Pairing
 - **Real-Time Peripheral Scanning**: Scans for Bluetooth Low Energy peripherals with RSSI signal strength meters.
 - **Mock Hardware Simulation**: Preconfigured prototypes (`Sonic Smart Earpiece Left`, `Sonic Haptic Clip Pro`) allow complete UI testing on emulators and hardware lacking BLE peripherals.
@@ -548,3 +552,5 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+

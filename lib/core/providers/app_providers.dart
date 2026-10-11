@@ -129,7 +129,7 @@ class DetectionCoordinator {
 
       // 1. Run General Sound Classifier
       final classifier = _ref.read(soundClassifierProvider);
-      final classification = classifier.classify(frame.spectrogram);
+      final classification = classifier.classify(frame.rawSpectrogram);
       _ref.read(latestDetectionProvider.notifier).state = classification;
 
       final alertService = _ref.read(alertServiceProvider);

@@ -14,11 +14,13 @@ class SpectrogramDebugScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final audioFrameAsync = ref.watch(liveAudioStreamProvider);
     final latestDetection = ref.watch(latestDetectionProvider);
+    final classifier = ref.watch(soundClassifierProvider);
 
     final frame = audioFrameAsync.asData?.value;
     final spec = frame?.spectrogram ?? [];
     final samples = frame?.samples ?? [];
     final probs = latestDetection?.classProbabilities ?? {};
+    final isNative = latestDetection?.isNativeTflite ?? classifier.hasNativeInterpreter;
 
     return Scaffold(
       appBar: AppBar(
@@ -30,6 +32,59 @@ class SpectrogramDebugScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Model Status Banner
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isNative
+                    ? SonicColors.secondary.withAlpha(30)
+                    : SonicColors.alertAmber.withAlpha(30),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isNative
+                      ? SonicColors.secondary.withAlpha(120)
+                      : SonicColors.alertAmber.withAlpha(120),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isNative ? Icons.memory : Icons.settings_input_antenna,
+                    color: isNative ? SonicColors.secondary : SonicColors.alertAmber,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isNative
+                              ? 'Native TFLite Classifier Active'
+                              : 'Acoustic Fallback Engine Active',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isNative ? SonicColors.secondary : SonicColors.alertAmber,
+                          ),
+                        ),
+                        Text(
+                          isNative
+                              ? 'Model: sound_classifier.tflite (1.78 MB • 61×64 Log-Mel • 128-d Embedding)'
+                              : 'Using on-device spectral feature heuristic engine',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: SonicColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Section 1: Spectrogram Heatmap
             const Text(
               'Real-Time Log-Mel Spectrogram (64 Bands)',
