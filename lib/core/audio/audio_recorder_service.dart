@@ -6,6 +6,15 @@ import '../constants/app_constants.dart';
 import 'audio_buffer.dart';
 import 'mel_spectrogram.dart';
 
+enum MicrophoneState {
+  idle,
+  listening,
+  paused,
+  permissionDenied,
+  microphoneError,
+  simulationMode,
+}
+
 /// Represents a single analyzed audio frame snapshot emitted by the pipeline.
 class AudioFrame {
   final List<double> samples;
@@ -48,13 +57,29 @@ class AudioRecorderService {
       StreamController<AudioFrame>.broadcast();
   Stream<AudioFrame> get audioStream => _frameController.stream;
 
+  final StreamController<MicrophoneState> _micStateController =
+      StreamController<MicrophoneState>.broadcast();
+  Stream<MicrophoneState> get microphoneStateStream => _micStateController.stream;
+
   bool _isListening = false;
   bool get isListening => _isListening;
 
   bool _isSimulationMode = false;
   bool get isSimulationMode => _isSimulationMode;
 
+  MicrophoneState _currentMicState = MicrophoneState.idle;
+  MicrophoneState get currentMicState => _currentMicState;
+
   double _simPhase = 0.0;
+
+  void _setMicState(MicrophoneState state) {
+    if (_currentMicState != state) {
+      _currentMicState = state;
+      if (!_micStateController.isClosed) {
+        _micStateController.add(state);
+      }
+    }
+  }
 
   /// Starts listening to microphone audio stream.
   /// If [simulation] is true or microphone is unavailable, falls back to simulated audio.
@@ -68,7 +93,8 @@ class AudioRecorderService {
       try {
         final hasPerm = await _recorder.hasPermission();
         if (!hasPerm) {
-          debugPrint('[SonicAudio] Microphone permission denied, falling back to simulated audio');
+          debugPrint('[SonicAudio] Microphone permission denied');
+          _setMicState(MicrophoneState.permissionDenied);
           _startSimulationMode();
           _isListening = true;
           return true;
@@ -91,6 +117,7 @@ class AudioRecorderService {
           },
           onError: (error) {
             debugPrint('[SonicAudio] Stream error: $error');
+            _setMicState(MicrophoneState.microphoneError);
             _startSimulationMode();
           },
         );
@@ -102,9 +129,11 @@ class AudioRecorderService {
         );
 
         _isListening = true;
+        _setMicState(MicrophoneState.listening);
         return true;
       } catch (e) {
         debugPrint('[SonicAudio] Could not start physical mic stream: $e. Falling back to simulation.');
+        _setMicState(MicrophoneState.microphoneError);
         _startSimulationMode();
         _isListening = true;
         return true;
@@ -112,6 +141,7 @@ class AudioRecorderService {
     } else {
       _startSimulationMode();
       _isListening = true;
+      _setMicState(MicrophoneState.simulationMode);
       return true;
     }
   }
@@ -119,6 +149,10 @@ class AudioRecorderService {
   void _startSimulationMode() {
     _simulationTimer?.cancel();
     _analysisTimer?.cancel();
+
+    if (!_isSimulationMode) {
+      _setMicState(MicrophoneState.simulationMode);
+    }
 
     // Emits synthetic realistic background ambient audio
     _simulationTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
@@ -175,7 +209,9 @@ class AudioRecorderService {
   }
 
   /// Records a discrete audio sample for the "Teach a Sound" workflow.
-  /// Captures audio for [durationSeconds] and returns the raw normalized samples.
+  /// Captures real microphone audio for [durationSeconds]. Throws if
+  /// permission is denied or the microphone is unavailable. Never returns
+  /// synthetic audio as a real example.
   Future<List<double>> recordSampleForTeaching({
     int durationSeconds = AppConstants.sampleRecordingDurationSeconds,
     void Function(double volume)? onVolumeTick,
@@ -184,12 +220,14 @@ class AudioRecorderService {
     final totalSamples = AppConstants.sampleRate * durationSeconds;
     final completer = Completer<List<double>>();
 
+    final hasPerm = await _recorder.hasPermission();
+    if (!hasPerm) {
+      throw MicrophonePermissionException(
+        'Microphone permission denied. Enable microphone access in settings to teach sounds.',
+      );
+    }
+
     try {
-      final hasPerm = await _recorder.hasPermission();
-      if (!hasPerm) {
-        // Fallback synthetic recording for teaching in simulated/test mode
-        return _generateSyntheticTeachingSample(durationSeconds);
-      }
 
       final tempRecorder = AudioRecorder();
       final stream = await tempRecorder.startStream(
@@ -224,7 +262,9 @@ class AudioRecorderService {
         }
       }, onError: (e) {
         if (!completer.isCompleted) {
-          completer.complete(_generateSyntheticTeachingSample(durationSeconds));
+          completer.completeError(
+            MicrophoneRecordingException('Microphone stream failed: $e'),
+          );
         }
       });
 
@@ -233,38 +273,33 @@ class AudioRecorderService {
         if (!completer.isCompleted) {
           sub.cancel();
           tempRecorder.stop().catchError((_) => null);
-          completer.complete(
-            sampleBuffer.isNotEmpty
-                ? sampleBuffer
-                : _generateSyntheticTeachingSample(durationSeconds),
-          );
+          if (sampleBuffer.isNotEmpty) {
+            completer.complete(sampleBuffer);
+          } else {
+            completer.completeError(
+              const MicrophoneRecordingException(
+                'No audio captured. Please speak or make the sound near the microphone.',
+              ),
+            );
+          }
         }
       });
 
       return await completer.future;
+    } on MicrophonePermissionException {
+      rethrow;
+    } on MicrophoneRecordingException {
+      rethrow;
     } catch (e) {
-      debugPrint('[SonicAudio] Direct recording failed: $e, using simulated sample.');
-      return _generateSyntheticTeachingSample(durationSeconds);
+      debugPrint('[SonicAudio] Direct recording failed: $e');
+      throw MicrophoneRecordingException('Recording failed: $e');
     }
-  }
-
-  List<double> _generateSyntheticTeachingSample(int durationSeconds) {
-    final totalSamples = AppConstants.sampleRate * durationSeconds;
-    final random = math.Random();
-    final baseFreq = 800.0 + random.nextDouble() * 600.0;
-
-    return List<double>.generate(totalSamples, (i) {
-      final t = i / AppConstants.sampleRate;
-      final wave = 0.4 * math.sin(2 * math.pi * baseFreq * t) +
-          0.2 * math.sin(2 * math.pi * (baseFreq * 1.5) * t);
-      final noise = (random.nextDouble() - 0.5) * 0.05;
-      return (wave + noise).clamp(-1.0, 1.0);
-    });
   }
 
   /// Stops audio streaming.
   Future<void> stopListening() async {
     _isListening = false;
+    _setMicState(MicrophoneState.paused);
     _simulationTimer?.cancel();
     _analysisTimer?.cancel();
     await _recordSub?.cancel();
@@ -276,9 +311,48 @@ class AudioRecorderService {
     } catch (_) {}
   }
 
+  Future<void> pauseListening() async {
+    if (!_isListening) return;
+    _isListening = false;
+    _setMicState(MicrophoneState.paused);
+    _simulationTimer?.cancel();
+    _analysisTimer?.cancel();
+    await _recordSub?.cancel();
+    _recordSub = null;
+    try {
+      if (_audioRecorder != null && await _audioRecorder!.isRecording()) {
+        await _audioRecorder!.stop();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> resumeListening() async {
+    if (_isListening) return;
+    await startListening(simulation: _isSimulationMode);
+  }
+
   void dispose() {
     stopListening();
     _frameController.close();
+    _micStateController.close();
     _audioRecorder?.dispose();
   }
+}
+
+/// Thrown when microphone permission blocks teaching or live capture.
+class MicrophonePermissionException implements Exception {
+  final String message;
+  const MicrophonePermissionException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// Thrown when a real microphone recording cannot be captured.
+class MicrophoneRecordingException implements Exception {
+  final String message;
+  const MicrophoneRecordingException(this.message);
+
+  @override
+  String toString() => message;
 }

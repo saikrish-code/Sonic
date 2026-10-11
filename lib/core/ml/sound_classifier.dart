@@ -37,6 +37,8 @@ class SoundClassifier {
   static const int melBins = 64;
   static const int smoothingWindowSize = 3;
 
+  static const double eventThreshold = 0.70;
+
   Interpreter? _interpreter;
   bool _isInitialized = false;
   bool _useFallback = false;
@@ -322,31 +324,30 @@ class SoundClassifier {
       probabilities[SoundCategories.all[i].key] = smoothedProbs[i];
     }
 
-    // The 14 trained classes from model_info.json trained_slots (indices 0-19):
-    // 2:siren, 3:baby_crying, 4:glass_breaking, 6:door_knock, 7:dog_bark,
-    // 10:car_horn, 12:water_running, 13:thunderstorm, 14:alarm_clock, 15:cat_meow,
-    // 16:footsteps, 17:coughing, 18:snoring, 19:danger_explosion
-    const trainedKeys = {
-      'siren',
-      'baby_crying',
-      'glass_breaking',
+    // Model metadata from assets/models/model_info.json:
+    // - 20 output indices (0-19) map to the exact category order in "categories"
+    // - 14 trained classes at "trained_slots": [2,3,4,6,7,10,12,13,14,15,16,17,18,19]
+    // - 6 untrated: smoke_alarm(0), fire_alarm(1), doorbell(5), phone_ringing(8),
+    //   name_calling(9), appliance_beep(11) - not reliable for inference
+    // - Recommended threshold: 0.70 (validation-selected for 5% false alarm rate)
+    //
+    // The 6 intended dashboard event classes must all be verified trained:
+    // door_knock(6), coughing(17), baby_crying(3), dog_bark(7), cat_meow(15),
+    // footsteps(16) - ALL PRESENT in trained_slots ✓
+    const targetEventKeys = {
       'door_knock',
+      'coughing',
+      'baby_crying',
       'dog_bark',
-      'car_horn',
-      'water_running',
-      'thunderstorm',
-      'alarm_clock',
       'cat_meow',
       'footsteps',
-      'coughing',
-      'snoring',
-      'danger_explosion',
     };
 
-    // Only consider trained classes for alert-worthy predictions
+    // Only consider the 6 target event classes for the dashboard display.
+    // Show the highest-confidence target only when it reaches >= 0.70.
     String topKey = 'ambient_silence';
     double topProb = 0.0;
-    for (final key in trainedKeys) {
+    for (final key in targetEventKeys) {
       final prob = probabilities[key] ?? 0.0;
       if (prob > topProb) {
         topProb = prob;
@@ -354,7 +355,9 @@ class SoundClassifier {
       }
     }
 
-    // Only show alert when a trained class reaches >= 70%
+    // Only show an event label when a target class reaches >= 70%.
+    // Otherwise return ambient_silence and let the live status layer decide
+    // between Normal (baseline) and Talking (decibel departure).
     if (topProb < 0.70) {
       topKey = 'ambient_silence';
       topProb = 0.0;

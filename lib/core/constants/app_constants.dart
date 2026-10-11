@@ -22,7 +22,7 @@ class AppConstants {
   static const double thresholdAdjustmentStep = 0.04;
 
   // Teach Sound Requirements
-  static const int minSamplesToTeach = 2;
+  static const int minSamplesToTeach = 5;
   static const int maxSamplesToTeach = 5;
   static const int sampleRecordingDurationSeconds = 3;
 

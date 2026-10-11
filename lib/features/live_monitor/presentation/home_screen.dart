@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/ml/live_status.dart';
 import '../../../../core/ml/sound_labels.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/sonic_colors.dart';
@@ -15,14 +16,17 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(audioPipelineBootstrapProvider);
+    ref.watch(micStateBridgeProvider);
     final audioFrameAsync = ref.watch(liveAudioStreamProvider);
     final isListening = ref.watch(isListeningActiveProvider);
-    final latestDetection = ref.watch(latestDetectionProvider);
+    final liveStatus = ref.watch(liveSoundStatusProvider);
     final connectedBle = ref.watch(bleConnectedDeviceProvider).asData?.value;
 
     final samples = audioFrameAsync.asData?.value.samples ?? [];
     final decibels = audioFrameAsync.asData?.value.decibels ?? -80.0;
     final displayDecibels = (decibels + 100).clamp(20, 100).toInt();
+    final statusDetail = _statusTitle(liveStatus, isListening);
 
     return Scaffold(
       backgroundColor: SonicColors.background,
@@ -145,7 +149,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                isListening ? "Listening to your\nenvironment" : "Sound monitoring\nis paused",
+                statusDetail,
                 style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
@@ -188,9 +192,7 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        isListening
-                            ? 'Continuous acoustic monitoring active'
-                            : 'Listening is paused. Tap to resume.',
+                        _statusPillText(liveStatus, isListening),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -406,11 +408,9 @@ class HomeScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            latestDetection != null &&
-                                    latestDetection.topCategoryKey != 'ambient_silence' &&
-                                    latestDetection.confidence >= 0.70
-                                ? latestDetection.topCategoryLabel
-                                : 'quiet ambient',
+                            liveStatus.showsEvent
+                                ? liveStatus.label
+                                : _bentoSubtitle(liveStatus),
                             style: const TextStyle(
                               fontSize: 12,
                               color: SonicColors.textSecondary,
@@ -441,11 +441,9 @@ class HomeScreen extends ConsumerWidget {
                             textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
-                                latestDetection != null &&
-                                        latestDetection.topCategoryKey != 'ambient_silence' &&
-                                        latestDetection.confidence >= 0.70
-                                    ? '${(latestDetection.confidence * 100).toInt()}%'
-                                    : 'Safe',
+                                liveStatus.showsEvent
+                                    ? '${(liveStatus.confidence * 100).toInt()}%'
+                                    : _bentoConfidenceLabel(liveStatus),
                                 style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.w700,
@@ -455,11 +453,9 @@ class HomeScreen extends ConsumerWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                latestDetection != null &&
-                                        latestDetection.topCategoryKey != 'ambient_silence' &&
-                                        latestDetection.confidence >= 0.70
+                                liveStatus.showsEvent
                                     ? 'Conf'
-                                    : 'Acoustic',
+                                    : _bentoConfidenceUnit(liveStatus),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -543,11 +539,9 @@ class HomeScreen extends ConsumerWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          latestDetection != null &&
-                                  latestDetection.topCategoryKey != 'ambient_silence' &&
-                                  latestDetection.confidence >= 0.70
-                              ? '${(latestDetection.confidence * 100).toInt()}%'
-                              : '20',
+                          liveStatus.showsEvent
+                              ? '${(liveStatus.confidence * 100).toInt()}%'
+                              : _heroValue(liveStatus),
                           style: const TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w800,
@@ -557,11 +551,9 @@ class HomeScreen extends ConsumerWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          latestDetection != null &&
-                                  latestDetection.topCategoryKey != 'ambient_silence' &&
-                                  latestDetection.confidence >= 0.70
-                              ? '${latestDetection.topCategoryLabel} Detected'
-                              : 'Hazard Categories Active',
+                          liveStatus.showsEvent
+                              ? '${liveStatus.label} Detected'
+                              : _heroSubtitle(liveStatus),
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -576,8 +568,8 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 24),
 
-              // 8. Latest Detection Card (When sound is detected or quiet)
-              _LatestDetectionCard(latest: latestDetection),
+              // 8. Latest Detection Card (single shared live status)
+              _LatestDetectionCard(status: liveStatus),
 
               const SizedBox(height: 32),
             ],
@@ -631,11 +623,11 @@ class _ActionPill extends StatelessWidget {
 }
 
 class _LatestDetectionCard extends StatelessWidget {
-  final dynamic latest;
+  final LiveSoundStatus status;
 
-  const _LatestDetectionCard({required this.latest});
+  const _LatestDetectionCard({required this.status});
 
-  Widget _buildNormalCard(BuildContext context, String title, String subtitle) {
+  Widget _buildNormalCard(BuildContext context, String title, String subtitle, {IconData icon = Icons.hearing_rounded}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -647,27 +639,27 @@ class _LatestDetectionCard extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            Icons.hearing_rounded,
+            icon,
             color: SonicColors.textSecondary,
             size: 26,
           ),
-          SizedBox(width: 16),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: SonicColors.textPrimary,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color: SonicColors.textSecondary,
                   ),
@@ -682,18 +674,57 @@ class _LatestDetectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (latest == null || latest.topCategoryKey == 'ambient_silence') {
-      return _buildNormalCard(context, 'Environment Quiet', 'Microphone analyzing rolling 1-second acoustic frames');
+    switch (status.kind) {
+      case LiveSoundKind.permissionDenied:
+        return _buildNormalCard(
+          context,
+          'Microphone Blocked',
+          'Enable microphone access in settings to listen.',
+          icon: Icons.mic_off_rounded,
+        );
+      case LiveSoundKind.microphoneError:
+        return _buildNormalCard(
+          context,
+          'Microphone Error',
+          'Audio input unavailable. Check your microphone.',
+          icon: Icons.error_outline_rounded,
+        );
+      case LiveSoundKind.paused:
+        return _buildNormalCard(
+          context,
+          'Paused',
+          'Sound monitoring is paused. Tap resume to listen.',
+          icon: Icons.pause_rounded,
+        );
+      case LiveSoundKind.simulationMode:
+        return _buildNormalCard(
+          context,
+          'Demo Mode',
+          'Simulated audio. Not real microphone input.',
+          icon: Icons.science_rounded,
+        );
+      case LiveSoundKind.listening:
+        return _buildNormalCard(
+          context,
+          'Listening',
+          'Calibrating ambient baseline.',
+        );
+      case LiveSoundKind.normal:
+        return _buildNormalCard(context, 'Normal', 'Ambient level at baseline.');
+      case LiveSoundKind.talking:
+        return _buildNormalCard(
+          context,
+          'Talking',
+          'Sound level above ambient baseline.',
+          icon: Icons.record_voice_over_rounded,
+        );
+      case LiveSoundKind.event:
+        break;
     }
 
-    if (latest.confidence < 0.70) {
-      return _buildNormalCard(context, 'Normal', 'No significant sound detected');
-    }
+    final cat = status.category ?? SoundCategories.getByKey('danger_explosion');
+    final confPercent = (status.confidence * 100).toInt();
 
-    final cat = SoundCategories.getByKey(latest.topCategoryKey);
-    final confPercent = (latest.confidence * 100).toInt();
-
-    // Normal warning display for sounds >= 70%
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -739,7 +770,7 @@ class _LatestDetectionCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      DateFormat('HH:mm:ss').format(latest.timestamp),
+                      DateFormat('HH:mm:ss').format(DateTime.now()),
                       style: const TextStyle(
                         fontSize: 11,
                         color: SonicColors.textMuted,
@@ -749,7 +780,7 @@ class _LatestDetectionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  latest.topCategoryLabel,
+                  status.label,
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
@@ -763,7 +794,7 @@ class _LatestDetectionCard extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
-                          value: latest.confidence.clamp(0.0, 1.0),
+                          value: status.confidence.clamp(0.0, 1.0),
                           backgroundColor: SonicColors.surfaceLight,
                           color: cat.color,
                           minHeight: 5,
@@ -787,5 +818,144 @@ class _LatestDetectionCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+String _statusPillText(LiveSoundStatus status, bool isListening) {
+  if (!isListening) return 'Listening is paused. Tap to resume.';
+  switch (status.kind) {
+    case LiveSoundKind.permissionDenied:
+      return 'Microphone blocked. Enable access in settings.';
+    case LiveSoundKind.microphoneError:
+      return 'Microphone error. Check your audio input.';
+    case LiveSoundKind.simulationMode:
+      return 'Demo mode: simulated audio, not the microphone.';
+    case LiveSoundKind.event:
+      return 'Event detected: ${status.label}.';
+    case LiveSoundKind.talking:
+      return 'Elevated sound level detected.';
+    case LiveSoundKind.paused:
+      return 'Listening is paused. Tap to resume.';
+    case LiveSoundKind.listening:
+      return 'Calibrating ambient baseline.';
+    case LiveSoundKind.normal:
+      return 'Continuous acoustic monitoring active.';
+  }
+}
+
+String _statusTitle(LiveSoundStatus status, bool isListening) {
+  if (!isListening) return 'Sound monitoring\nis paused';
+  switch (status.kind) {
+    case LiveSoundKind.event:
+      return 'Sound detected:\n${status.label}';
+    case LiveSoundKind.talking:
+      return 'Elevated sound\nlevel detected';
+    case LiveSoundKind.permissionDenied:
+      return 'Microphone\nis blocked';
+    case LiveSoundKind.microphoneError:
+      return 'Microphone\nerror';
+    case LiveSoundKind.paused:
+      return 'Sound monitoring\nis paused';
+    case LiveSoundKind.simulationMode:
+      return 'Demo mode:\nsimulated audio';
+    case LiveSoundKind.listening:
+      return 'Listening to your\nenvironment';
+    case LiveSoundKind.normal:
+      return 'Listening to your\nenvironment';
+  }
+}
+
+String _bentoSubtitle(LiveSoundStatus status) {
+  switch (status.kind) {
+    case LiveSoundKind.event:
+      return status.label;
+    case LiveSoundKind.talking:
+      return 'above baseline';
+    case LiveSoundKind.permissionDenied:
+      return 'permission denied';
+    case LiveSoundKind.microphoneError:
+      return 'mic error';
+    case LiveSoundKind.paused:
+      return 'paused';
+    case LiveSoundKind.simulationMode:
+      return 'simulated audio';
+    case LiveSoundKind.listening:
+      return 'calibrating';
+    case LiveSoundKind.normal:
+      return 'quiet ambient';
+  }
+}
+
+String _bentoConfidenceLabel(LiveSoundStatus status) {
+  switch (status.kind) {
+    case LiveSoundKind.event:
+      return '${(status.confidence * 100).toInt()}%';
+    case LiveSoundKind.talking:
+      return 'Talking';
+    case LiveSoundKind.permissionDenied:
+      return 'Blocked';
+    case LiveSoundKind.microphoneError:
+      return 'Error';
+    case LiveSoundKind.paused:
+      return 'Off';
+    case LiveSoundKind.simulationMode:
+      return 'Demo';
+    case LiveSoundKind.listening:
+      return 'Live';
+    case LiveSoundKind.normal:
+      return 'Safe';
+  }
+}
+
+String _bentoConfidenceUnit(LiveSoundStatus status) {
+  switch (status.kind) {
+    case LiveSoundKind.event:
+      return 'Conf';
+    case LiveSoundKind.talking:
+      return 'Level';
+    default:
+      return 'Acoustic';
+  }
+}
+
+String _heroValue(LiveSoundStatus status) {
+  switch (status.kind) {
+    case LiveSoundKind.event:
+      return '${(status.confidence * 100).toInt()}%';
+    case LiveSoundKind.talking:
+      return 'Talking';
+    case LiveSoundKind.permissionDenied:
+      return 'Blocked';
+    case LiveSoundKind.microphoneError:
+      return 'Error';
+    case LiveSoundKind.paused:
+      return 'Off';
+    case LiveSoundKind.simulationMode:
+      return 'Demo';
+    case LiveSoundKind.listening:
+      return 'Live';
+    case LiveSoundKind.normal:
+      return 'Normal';
+  }
+}
+
+String _heroSubtitle(LiveSoundStatus status) {
+  switch (status.kind) {
+    case LiveSoundKind.event:
+      return '${status.label} Detected';
+    case LiveSoundKind.talking:
+      return 'Above Baseline';
+    case LiveSoundKind.permissionDenied:
+      return 'Enable Microphone';
+    case LiveSoundKind.microphoneError:
+      return 'Check Microphone';
+    case LiveSoundKind.paused:
+      return 'Monitoring Paused';
+    case LiveSoundKind.simulationMode:
+      return 'Simulated Audio';
+    case LiveSoundKind.listening:
+      return 'Calibrating Baseline';
+    case LiveSoundKind.normal:
+      return 'At Baseline';
   }
 }

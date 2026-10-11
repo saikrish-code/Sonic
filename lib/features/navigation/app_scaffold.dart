@@ -26,6 +26,14 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(audioPipelineBootstrapProvider);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isListening = ref.watch(isListeningActiveProvider);
 

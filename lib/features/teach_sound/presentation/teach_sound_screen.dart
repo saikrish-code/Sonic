@@ -22,13 +22,14 @@ class _TeachSoundScreenState extends ConsumerState<TeachSoundScreen> {
   int _selectedIconCode = Icons.doorbell.codePoint;
   int _selectedColorValue = 0xFF5E45FF;
 
-  // Recorded samples storage: each sample is a List<double> of audio PCM samples
+  // Recorded samples storage: each sample is a List<double> of real mic PCM samples
   final List<List<double>> _recordedSamples = [];
 
   bool _isRecordingSample = false;
   int _recordingCountdown = 3;
   Timer? _countdownTimer;
   int _activeSampleTab = 0;
+  int _retakeIndex = -1;
 
   static const List<IconData> _availableIcons = [
     Icons.doorbell_rounded,
@@ -59,20 +60,24 @@ class _TeachSoundScreenState extends ConsumerState<TeachSoundScreen> {
 
   Future<void> _startRecordingSample() async {
     if (_isRecordingSample) return;
-    if (_recordedSamples.length >= AppConstants.maxSamplesToTeach) {
+
+    final bool isRetake = _retakeIndex >= 0;
+    if (!isRetake && _recordedSamples.length >= AppConstants.maxSamplesToTeach) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 5 samples reached.')),
+        const SnackBar(content: Text('Maximum 5 samples reached. Tap Retake to replace one.')),
       );
       return;
     }
 
     setState(() {
       _isRecordingSample = true;
-      _recordingCountdown = 3;
+      _recordingCountdown = AppConstants.sampleRecordingDurationSeconds;
     });
 
     final audioService = ref.read(audioRecorderServiceProvider);
-    final recordedPcmFuture = audioService.recordSampleForTeaching(durationSeconds: 3);
+    final recordedPcmFuture = audioService.recordSampleForTeaching(
+      durationSeconds: AppConstants.sampleRecordingDurationSeconds,
+    );
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_recordingCountdown > 1) {
@@ -86,20 +91,33 @@ class _TeachSoundScreenState extends ConsumerState<TeachSoundScreen> {
       final sample = await recordedPcmFuture;
       if (mounted) {
         setState(() {
-          _recordedSamples.add(sample);
+          if (isRetake) {
+            _recordedSamples[_retakeIndex] = sample;
+            _activeSampleTab = _retakeIndex;
+            _retakeIndex = -1;
+          } else {
+            _recordedSamples.add(sample);
+            _activeSampleTab = _recordedSamples.length - 1;
+          }
           _isRecordingSample = false;
-          _activeSampleTab = _recordedSamples.length - 1;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sample ${_recordedSamples.length} recorded successfully!'),
+            content: Text(
+              isRetake
+                  ? 'Sample ${_activeSampleTab + 1} retaken successfully!'
+                  : 'Sample ${_recordedSamples.length} recorded successfully!',
+            ),
             backgroundColor: SonicColors.surfaceLight,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isRecordingSample = false);
+        setState(() {
+          _isRecordingSample = false;
+          _retakeIndex = -1;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Recording error: $e')),
         );
@@ -119,7 +137,7 @@ class _TeachSoundScreenState extends ConsumerState<TeachSoundScreen> {
     if (_recordedSamples.length < AppConstants.minSamplesToTeach) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please record at least ${AppConstants.minSamplesToTeach} samples.'),
+          content: Text('Please record all 5 samples before saving.'),
         ),
       );
       return;
@@ -603,19 +621,23 @@ class _TeachSoundScreenState extends ConsumerState<TeachSoundScreen> {
                       letterSpacing: -0.3,
                     ),
                   ),
-                  if (_recordedSamples.isNotEmpty)
-                    GestureDetector(
-                      onTap: () => setState(() => _recordedSamples.clear()),
-                      child: const Text(
-                        'Clear All',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: SonicColors.alertRed,
-                        ),
-                      ),
+                  Text(
+                    '${_recordedSamples.length}/5',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: SonicColors.primaryLight,
                     ),
+                  ),
                 ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Capture 5 real microphone recordings. Tap Retake to replace a bad one.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: SonicColors.textSecondary,
+                ),
               ),
 
               const SizedBox(height: 14),
@@ -651,34 +673,59 @@ class _TeachSoundScreenState extends ConsumerState<TeachSoundScreen> {
                   _SampleHistoryTile(
                     sampleIndex: i + 1,
                     onDelete: () => setState(() => _recordedSamples.removeAt(i)),
+                    onRetake: () {
+                      setState(() => _retakeIndex = i);
+                      _startRecordingSample();
+                    },
                   ),
                   const SizedBox(height: 10),
                 ],
 
               const SizedBox(height: 24),
 
-              // Save Prototype Button
+              // Save Prototype Button (enabled only with all 5 real samples)
               if (_recordedSamples.isNotEmpty)
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: _savePrototype,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: SonicColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(27),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_recordedSamples.length < AppConstants.minSamplesToTeach)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          'Record ${_recordedSamples.length}/5 samples to save.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: SonicColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: _recordedSamples.length >= AppConstants.minSamplesToTeach
+                            ? _savePrototype
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: SonicColors.primary,
+                          disabledBackgroundColor: SonicColors.surfaceLight,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(27),
+                          ),
+                        ),
+                        child: Text(
+                          'Save Sound Prototype (${_recordedSamples.length}/5 samples)',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
-                    child: Text(
-                      'Save Sound Prototype (${_recordedSamples.length} samples)',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
+                  ],
                 ),
 
               const SizedBox(height: 32),
@@ -746,10 +793,12 @@ class _SampleSlotPill extends StatelessWidget {
 class _SampleHistoryTile extends StatelessWidget {
   final int sampleIndex;
   final VoidCallback onDelete;
+  final VoidCallback onRetake;
 
   const _SampleHistoryTile({
     required this.sampleIndex,
     required this.onDelete,
+    required this.onRetake,
   });
 
   @override
@@ -794,6 +843,17 @@ class _SampleHistoryTile extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          TextButton(
+            onPressed: onRetake,
+            child: const Text(
+              'Retake',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: SonicColors.primaryLight,
+              ),
             ),
           ),
           IconButton(
