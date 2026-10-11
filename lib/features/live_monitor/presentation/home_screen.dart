@@ -543,7 +543,9 @@ class HomeScreen extends ConsumerWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          latestDetection != null && latestDetection.topCategoryKey != 'ambient_silence'
+                          latestDetection != null &&
+                                  latestDetection.topCategoryKey != 'ambient_silence' &&
+                                  latestDetection.confidence >= 0.70
                               ? '${(latestDetection.confidence * 100).toInt()}%'
                               : '20',
                           style: const TextStyle(
@@ -555,7 +557,9 @@ class HomeScreen extends ConsumerWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          latestDetection != null && latestDetection.topCategoryKey != 'ambient_silence'
+                          latestDetection != null &&
+                                  latestDetection.topCategoryKey != 'ambient_silence' &&
+                                  latestDetection.confidence >= 0.70
                               ? '${latestDetection.topCategoryLabel} Detected'
                               : 'Hazard Categories Active',
                           style: const TextStyle(
