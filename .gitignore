@@ -33,6 +33,14 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Audio training data and generated model-training artifacts (keep source data out of Git).
+/datasets/
+/ml/.ipynb_checkpoints/
+/features_*.npz
+/sonic_savedmodel/
+/.venv/
+/.pip-tmp/
+
 # Symbolication related
 app.*.symbols
 

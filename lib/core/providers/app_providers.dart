@@ -196,6 +196,11 @@ class DetectionCoordinator {
   StreamSubscription? _audioSub;
 
   DetectionCoordinator(this._ref) {
+    _ref.listen<bool>(isListeningActiveProvider, (previous, isListening) {
+      if (!isListening) {
+        _ref.read(soundClassifierProvider).resetSmoothing();
+      }
+    });
     _startObserving();
   }
 

@@ -178,8 +178,9 @@ Every 1-second rolling audio frame is analyzed through two sequential stages:
    - If any active prototype exceeds its threshold ($\text{Similarity} \ge \tau_i$), a personalized sound match is declared. Personal sounds always take precedence over general classes to respect user customization.
 2. **Stage 2: General 20-Class Sound Classifier**:
    - If no custom prototype triggers, the Softmax probabilities across the 20 general classes are evaluated.
-   - Predictions are averaged over a 3-frame rolling history to smooth out transient acoustic spikes.
-   - If the smoothed probability exceeds the category's threshold (e.g., `0.65` for smoke alarms, `0.70` for sirens) and the class is not `ambient_silence`, a general alert is triggered.
+   - Predictions are averaged over a 3-frame rolling history. Only door knock, coughing, baby crying, dog bark, cat meow, and footsteps may become live event labels.
+   - A target event must clear the model metadata threshold (never below 0.70) in at least two of three overlapping windows. The energy-only fallback never guesses an event class.
+   - When no target qualifies, the shared dashboard status is `Normal` at the calibrated microphone baseline or `Talking` above baseline; `Talking` is an activity proxy, not speech recognition.
 
 ### Adaptive Feedback Loop
 To solve the common problem of false alarms in acoustic machine learning:
@@ -256,7 +257,7 @@ All digital signal processing, machine learning, and system alert constants are 
 
 ## 6. Sound Categories Table
 
-Sonic classifies 20 standard sound categories, organized by urgency tier with distinct haptic vibration sequences:
+Sonic keeps 20 fixed model-output slots for compatibility, but the live classifier is restricted to six trained event labels: door knock, coughing, baby crying, dog bark, cat meow, and footsteps. `Talking` is a microphone-level status, not a trained sound class. Other slots remain in the interface contract and must not be presented as model detections.
 
 | Category Key | Label | Urgency Tier | AudioSet Ontology ID | Default Threshold | Vibration Pattern (`[wait, vib, wait, vib...]` in ms) |
 |:---|:---|:---|:---|:---:|:---|
@@ -277,7 +278,7 @@ Sonic classifies 20 standard sound categories, organized by urgency tier with di
 | `alarm_clock` | Alarm Clock | **Warning** | `/m/046dlr` | 0.70 | `[0, 200, 80, 200, 80, 200, 80, 200]` |
 | `cat_meow` | Cat Meow | **Info** | `/m/07qrkrw` | 0.75 | `[0, 180, 100, 180]` |
 | `footsteps` | Footsteps | **Info** | `/m/07p6fty` | 0.80 | `[0, 100, 150, 100]` |
-| `talking` / `coughing`| Talking / Speech | **Info** | `/m/09x0r` | 0.75 | `[0, 150, 80, 150]` |
+| `coughing` | Coughing | **Info** | `/m/09x0r` | 0.70 | `[0, 150, 80, 150]` |
 | `snoring` | Snoring | **Info** | `/m/02db9z` | 0.75 | `[0, 400, 300, 400]` |
 | `danger_explosion`| Danger / Explosion | **Critical**| `/m/012n7d` | 0.70 | `[0, 1000, 100, 1000]` |
 
@@ -289,14 +290,14 @@ Sonic classifies 20 standard sound categories, organized by urgency tier with di
 
 ### Model Specifications
 - **Model File**: `sound_classifier.tflite` located in `assets/models/` (~1.78 MB).
-- **Architecture**: Compact convolutional neural network trained on acoustic features from AudioSet and ESC-50 datasets.
+- **Architecture**: Compact convolutional neural network with class scores and a 128-dimensional embedding. The current bundled model metadata reports ESC-50 as its only training source and 14 trained event slots; it has not yet been replaced by the six-class expanded-data checkpoint.
 - **Input Tensor**:
   - `Shape`: `[1, 61, 64]`
   - `Data Type`: `Float32`
   - `Description`: Batch size 1, 61 time frames (1-second window with 256 hop size), 64 Mel frequency bins (50 Hz to 8000 Hz).
   - `Normalization`: Built directly into the model graph. Raw $\log_{10}$ mel values are accepted directly.
 - **Output Tensors (Dual-Head)**:
-  - **Output 0 (`class_logits`)**: Shape `[1, 20]`, Float32. Softmax logits across the 20 predefined categories.
+- **Output 0 (`class_probs`)**: Shape `[1, 20]`, Float32. Probabilities mapped into the fixed 20-slot interface; untrained slots are zero.
   - **Output 1 (`embedding`)**: Shape `[1, 128]`, Float32. High-dimensional acoustic feature representation vector.
 
 ```
@@ -333,7 +334,9 @@ Sonic classifies 20 standard sound categories, organized by urgency tier with di
 ### Label Map & Model Metadata Files
 Located in `assets/models/`:
 - `label_map.json`: Maps the integer logit indices (`0` to `19`) to their corresponding category keys (`smoke_alarm`, `fire_alarm`, ..., `danger_explosion`).
-- `model_info.json`: Detailed model metadata including training datasets (ESC-50), trained slots, recommended thresholds (`0.70`), and Area Under the ROC Curve (AUC) metrics for known and unseen sounds.
+- `model_info.json`: Current model metadata, including training datasets, trained slots, and the recommended confidence threshold. The app reads this threshold while enforcing a 0.70 minimum.
+
+The expanded six-class dataset pipeline and real-world evaluation instructions are in [docs/model-training.md](docs/model-training.md) and [ml/sonic_six_class_robust_training.ipynb](ml/sonic_six_class_robust_training.ipynb). The first candidate's measured results and limitations are in [docs/model-training-results.md](docs/model-training-results.md). Do not report improved accuracy until a model has passed an untouched phone-recorded test set.
 
 ---
 

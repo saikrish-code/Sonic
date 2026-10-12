@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -38,22 +39,54 @@ class SoundClassifier {
   static const int smoothingWindowSize = 3;
 
   static const double eventThreshold = 0.70;
+  static const int eventAgreementWindow = 3;
+  static const int eventAgreementRequired = 2;
+
+  /// Only these model slots may become live dashboard events.
+  static const Set<String> targetEventKeys = {
+    'door_knock',
+    'coughing',
+    'baby_crying',
+    'dog_bark',
+    'cat_meow',
+    'footsteps',
+  };
 
   Interpreter? _interpreter;
   bool _isInitialized = false;
   bool _useFallback = false;
+  double _activeEventThreshold = eventThreshold;
   final List<List<double>> _probHistory = [];
+  final List<MapEntry<String, double>?> _eventHistory = [];
 
   bool get isInitialized => _isInitialized;
   bool get isUsingFallback => _useFallback;
   bool get hasNativeInterpreter => _interpreter != null;
+  double get activeEventThreshold => _activeEventThreshold;
 
   void resetSmoothing() {
     _probHistory.clear();
+    _eventHistory.clear();
   }
 
   Future<void> init() async {
     if (_isInitialized && _interpreter != null) return;
+
+    try {
+      final metadata = jsonDecode(
+        await rootBundle.loadString('assets/models/model_info.json'),
+      );
+      if (metadata is Map<String, dynamic> &&
+          metadata['recommended_threshold'] is num) {
+        _activeEventThreshold = (metadata['recommended_threshold'] as num)
+            .toDouble()
+            .clamp(eventThreshold, 0.99)
+            .toDouble();
+      }
+    } catch (e) {
+      debugPrint('[SonicML] Could not read model threshold metadata: $e. Using 0.70.');
+      _activeEventThreshold = eventThreshold;
+    }
 
     try {
       const assetPath = 'assets/models/sound_classifier.tflite';
@@ -147,120 +180,19 @@ class SoundClassifier {
     // L2 normalize
     final embedding = EmbeddingEngine.l2Normalize(rawEmbedding);
 
-    // 2. Classify dominant acoustic energy bands across the 20 categories
-    final logits = <String, double>{};
-    for (final cat in SoundCategories.all) {
-      logits[cat.key] = _computeCategoryLogit(cat.key, meanEnergy, stdEnergy);
-    }
-
-    // Softmax to obtain probabilities
-    double maxLogit = logits.values.reduce(math.max);
-    double sumExp = 0.0;
-    final expMap = <String, double>{};
-    for (final entry in logits.entries) {
-      final expVal = math.exp(entry.value - maxLogit);
-      expMap[entry.key] = expVal;
-      sumExp += expVal;
-    }
-
-    final probabilities = <String, double>{};
-    for (final entry in expMap.entries) {
-      probabilities[entry.key] = (entry.value / (sumExp > 0 ? sumExp : 1.0)).clamp(0.0, 1.0);
-    }
-
-    // Find top prediction
-    String topKey = SoundCategories.all.first.key;
-    double topProb = -1.0;
-    for (final entry in probabilities.entries) {
-      if (entry.value > topProb) {
-        topProb = entry.value;
-        topKey = entry.key;
-      }
-    }
-
-    final topCategory = SoundCategories.getByKey(topKey);
-
+    // This energy-only fallback has no trained class boundaries. Keep its
+    // embedding for Teach a Sound, but never present its heuristic guess as a
+    // real event (that is especially prone to false cough labels).
+    _probHistory.clear();
+    _eventHistory.clear();
     return ClassificationResult(
-      topCategoryKey: topKey,
-      topCategoryLabel: topCategory.label,
-      confidence: topProb,
+      topCategoryKey: 'ambient_silence',
+      topCategoryLabel: 'Normal',
+      confidence: 0.0,
       embedding: embedding,
-      classProbabilities: probabilities,
+      classProbabilities: const {},
       timestamp: DateTime.now(),
     );
-  }
-
-  double _computeCategoryLogit(
-    String key,
-    List<double> meanEnergy,
-    List<double> stdEnergy,
-  ) {
-    // Energy in low bands (0-15), mid bands (16-39), high bands (40-63)
-    double lowEnergy = 0.0;
-    for (int i = 0; i < 16; i++) {
-      lowEnergy += meanEnergy[i];
-    }
-    lowEnergy /= 16;
-
-    double midEnergy = 0.0;
-    for (int i = 16; i < 40; i++) {
-      midEnergy += meanEnergy[i];
-    }
-    midEnergy /= 24;
-
-    double highEnergy = 0.0;
-    for (int i = 40; i < meanEnergy.length; i++) {
-      highEnergy += meanEnergy[i];
-    }
-    highEnergy /= (meanEnergy.length - 40);
-
-    double temporalVariability = stdEnergy.reduce((a, b) => a + b) / stdEnergy.length;
-
-    switch (key) {
-      case 'smoke_alarm':
-      case 'fire_alarm':
-        // Piercing persistent high frequency
-        return highEnergy * 3.0 - lowEnergy * 0.5;
-      case 'siren':
-        // Sweeping mid-to-high frequency with high temporal swing
-        return midEnergy * 2.0 + temporalVariability * 2.5;
-      case 'baby_crying':
-        // Mid harmonic vocal bursts with high dynamics
-        return midEnergy * 2.2 + temporalVariability * 2.0;
-      case 'glass_breaking':
-        // Sudden high-frequency shatter burst
-        return highEnergy * 2.5 + temporalVariability * 3.0;
-      case 'doorbell':
-        // Clear mid-frequency chime
-        return midEnergy * 2.4 - highEnergy * 0.5;
-      case 'door_knock':
-        // Short low-frequency impulse
-        return lowEnergy * 3.0 + temporalVariability * 2.0;
-      case 'dog_bark':
-        // Low-to-mid bark bursts
-        return (lowEnergy + midEnergy) * 1.5 + temporalVariability * 2.2;
-      case 'phone_ringing':
-        // Alternating mid-frequency ring tone
-        return midEnergy * 2.5 + temporalVariability * 1.8;
-      case 'name_calling':
-      case 'talking':
-        // Human vocal speech range (mid frequencies)
-        return midEnergy * 2.0;
-      case 'car_horn':
-        // Loud dual-tone mid-frequency blast
-        return (lowEnergy + midEnergy) * 2.0 - temporalVariability;
-      case 'appliance_beep':
-        // Single sharp narrow mid-high beep
-        return highEnergy * 2.0 + midEnergy * 1.5;
-      case 'thunderstorm':
-        // Deep low-frequency rumble
-        return lowEnergy * 3.5 - highEnergy * 1.0;
-      case 'water_running':
-        // Broad smooth continuous noise
-        return (lowEnergy + midEnergy + highEnergy) * 1.0 - temporalVariability * 2.0;
-      default:
-        return (lowEnergy + midEnergy + highEnergy) / 3.0;
-    }
   }
 
   ClassificationResult _runNativeTflite(List<List<double>> spectrogram) {
@@ -318,7 +250,7 @@ class SoundClassifier {
       }
     }
 
-    // Map probabilities to category keys
+    // Map probabilities to category keys in the exact model output order.
     final probabilities = <String, double>{};
     for (int i = 0; i < SoundCategories.all.length && i < smoothedProbs.length; i++) {
       probabilities[SoundCategories.all[i].key] = smoothedProbs[i];
@@ -327,24 +259,16 @@ class SoundClassifier {
     // Model metadata from assets/models/model_info.json:
     // - 20 output indices (0-19) map to the exact category order in "categories"
     // - 14 trained classes at "trained_slots": [2,3,4,6,7,10,12,13,14,15,16,17,18,19]
-    // - 6 untrated: smoke_alarm(0), fire_alarm(1), doorbell(5), phone_ringing(8),
+    // - 6 untrained: smoke_alarm(0), fire_alarm(1), doorbell(5), phone_ringing(8),
     //   name_calling(9), appliance_beep(11) - not reliable for inference
-    // - Recommended threshold: 0.70 (validation-selected for 5% false alarm rate)
+    // - Current metadata threshold: 0.70 (validation-selected for 5% false alarms);
+    //   init() allows metadata to raise it but never below the 0.70 minimum.
     //
     // The 6 intended dashboard event classes must all be verified trained:
     // door_knock(6), coughing(17), baby_crying(3), dog_bark(7), cat_meow(15),
     // footsteps(16) - ALL PRESENT in trained_slots ✓
-    const targetEventKeys = {
-      'door_knock',
-      'coughing',
-      'baby_crying',
-      'dog_bark',
-      'cat_meow',
-      'footsteps',
-    };
-
     // Only consider the 6 target event classes for the dashboard display.
-    // Show the highest-confidence target only when it reaches >= 0.70.
+    // Show the highest-confidence target only when it reaches the active metadata threshold.
     String topKey = 'ambient_silence';
     double topProb = 0.0;
     for (final key in targetEventKeys) {
@@ -355,12 +279,29 @@ class SoundClassifier {
       }
     }
 
-    // Only show an event label when a target class reaches >= 70%.
-    // Otherwise return ambient_silence and let the live status layer decide
+    final qualifiedCandidate = topProb >= _activeEventThreshold
+        ? MapEntry(topKey, topProb)
+        : null;
+    _eventHistory.add(qualifiedCandidate);
+    if (_eventHistory.length > eventAgreementWindow) {
+      _eventHistory.removeAt(0);
+    }
+
+    final agreeingScores = _eventHistory
+        .where((entry) => entry?.key == topKey)
+        .map((entry) => entry!.value)
+        .toList();
+    final hasTemporalAgreement = qualifiedCandidate != null &&
+        agreeingScores.length >= eventAgreementRequired;
+
+    // Require both >=70% confidence and the same event in at least two of
+    // three overlapping windows. Otherwise let the live status layer decide
     // between Normal (baseline) and Talking (decibel departure).
-    if (topProb < 0.70) {
+    if (!hasTemporalAgreement) {
       topKey = 'ambient_silence';
       topProb = 0.0;
+    } else {
+      topProb = agreeingScores.reduce((a, b) => a + b) / agreeingScores.length;
     }
 
     return ClassificationResult(

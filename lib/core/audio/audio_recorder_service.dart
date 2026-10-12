@@ -105,9 +105,12 @@ class AudioRecorderService {
             encoder: AudioEncoder.pcm16bits,
             sampleRate: AppConstants.sampleRate,
             numChannels: 1,
-            autoGain: true,
-            echoCancel: true,
-            noiseSuppress: false, // Keep raw environmental sounds
+            // Preserve environmental playback and event dynamics. Automatic
+            // gain/echo cancellation can attenuate non-speech sounds such as
+            // a baby cry played through another device.
+            autoGain: false,
+            echoCancel: false,
+            noiseSuppress: false,
           ),
         );
 

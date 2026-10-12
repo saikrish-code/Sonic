@@ -139,7 +139,7 @@ class LiveStatusResolver {
     }
 
     if (detection != null &&
-        detection.topCategoryKey != 'ambient_silence' &&
+        SoundClassifier.targetEventKeys.contains(detection.topCategoryKey) &&
         detection.confidence >= SoundClassifier.eventThreshold) {
       try {
         final cat = SoundCategories.getByKey(detection.topCategoryKey);
