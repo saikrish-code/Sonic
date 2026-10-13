@@ -10,6 +10,15 @@ import '../../../../core/theme/sonic_icons.dart';
 class SoundSimulatorScreen extends ConsumerWidget {
   const SoundSimulatorScreen({super.key});
 
+  static const Set<String> _readyKeys = {
+    'door_knock',
+    'coughing',
+    'baby_crying',
+    'dog_bark',
+    'cat_meow',
+    'footsteps',
+  };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final taughtSoundsAsync = ref.watch(allTaughtSoundsProvider);
@@ -161,12 +170,18 @@ class SoundSimulatorScreen extends ConsumerWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                isDebounced ? 'Cooldown' : 'Ready',
+                                isDebounced
+                                    ? 'Cooldown'
+                                    : _readyKeys.contains(cat.key)
+                                        ? 'Ready'
+                                        : 'In-Progress',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: isDebounced
                                       ? SonicColors.textMuted
-                                      : SonicColors.alertGreen,
+                                      : _readyKeys.contains(cat.key)
+                                          ? SonicColors.alertGreen
+                                          : SonicColors.textMuted,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
