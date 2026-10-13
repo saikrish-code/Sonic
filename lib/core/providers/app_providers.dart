@@ -81,6 +81,50 @@ final microphoneStateProvider = StreamProvider<MicrophoneState>((ref) {
 /// Current microphone state value for synchronous reads inside other providers.
 final microphoneStateValueProvider = StateProvider<MicrophoneState>((ref) => MicrophoneState.idle);
 
+/// Per-target-class sensitivity thresholds (6 targets). Values persist to the
+/// local `category_settings` table and take effect on the next audio window.
+final targetSensitivityProvider =
+    StateNotifierProvider<TargetSensitivityNotifier, Map<String, double>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return TargetSensitivityNotifier(db);
+});
+
+class TargetSensitivityNotifier extends StateNotifier<Map<String, double>> {
+  final SonicDatabase _db;
+
+  static const defaults = {
+    'door_knock': 0.70,
+    'coughing': 0.70,
+    'baby_crying': 0.70,
+    'dog_bark': 0.70,
+    'cat_meow': 0.70,
+    'footsteps': 0.70,
+  };
+
+  TargetSensitivityNotifier(this._db) : super(Map.of(defaults)) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final stored = await _db.getAllCategorySensitivities();
+      final merged = Map<String, double>.of(defaults);
+      for (final entry in stored.entries) {
+        if (merged.containsKey(entry.key)) {
+          merged[entry.key] = entry.value.clamp(0.50, 0.95).toDouble();
+        }
+      }
+      state = merged;
+    } catch (_) {}
+  }
+
+  Future<void> setThreshold(String key, double value) async {
+    final clamped = value.clamp(0.50, 0.95).toDouble();
+    state = {...state, key: clamped};
+    await _db.setCategorySensitivity(key, clamped);
+  }
+}
+
 /// Current active heads-up alert banner (with screen flash overlay)
 final activeAlertBannerProvider = StreamProvider<ActiveAlertBanner?>((ref) {
   final alertService = ref.watch(alertServiceProvider);
@@ -206,6 +250,18 @@ class DetectionCoordinator {
 
   void _startObserving() {
     final audioService = _ref.read(audioRecorderServiceProvider);
+
+    // Push per-target thresholds into the classifier so slider changes gate
+    // live events, and re-evaluate the shared status on slider changes.
+    _ref.listen<Map<String, double>>(targetSensitivityProvider,
+        (previous, thresholds) {
+      _ref.read(soundClassifierProvider).setTargetThresholds(thresholds);
+      _refreshLiveStatus();
+    });
+    _ref
+        .read(soundClassifierProvider)
+        .setTargetThresholds(_ref.read(targetSensitivityProvider));
+
     _audioSub = audioService.audioStream.listen((frame) async {
       final isListening = _ref.read(isListeningActiveProvider);
       if (!isListening) {

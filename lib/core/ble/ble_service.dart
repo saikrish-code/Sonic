@@ -28,32 +28,13 @@ class BleService {
   StreamSubscription? _fbpSubscription;
   final List<BleDeviceModel> _discoveredDevices = [];
 
-  // Mock Sonic Earpieces for pairing simulation
-  static final List<BleDeviceModel> _mockDevices = [
-    const BleDeviceModel(
-      id: 'SO:NI:C0:01:EA:22',
-      name: 'Sonic Smart Earpiece (Left)',
-      rssi: -52,
-      batteryLevel: 94,
-      isMock: true,
-    ),
-    const BleDeviceModel(
-      id: 'SO:NI:C0:02:EA:33',
-      name: 'Sonic Haptic Clip Pro',
-      rssi: -68,
-      batteryLevel: 81,
-      isMock: true,
-    ),
-  ];
-
-  /// Starts scanning for nearby BLE peripherals.
+  /// Starts a real-time BLE scan for nearby peripherals. No demo devices
+  /// are injected; the list only contains hardware actually discovered
+  /// over Bluetooth (plus cached results refreshed on each scan).
   Future<void> startScan() async {
     if (_isScanning) return;
     _isScanning = true;
     _discoveredDevices.clear();
-
-    // Include mock Sonic wearable prototypes for testing
-    _discoveredDevices.addAll(_mockDevices);
     _scanResultsController.add(List.unmodifiable(_discoveredDevices));
 
     try {
@@ -91,7 +72,7 @@ class BleService {
         });
       }
     } catch (e) {
-      debugPrint('[SonicBLE] Hardware BLE scan unavailable ($e). Mock devices active.');
+      debugPrint('[SonicBLE] Hardware BLE scan unavailable ($e).');
     }
   }
 
@@ -104,7 +85,30 @@ class BleService {
     } catch (_) {}
   }
 
-  /// Connects to a device (handles both mock simulation and physical peripheral).
+  /// Handles a real-time state change for a discovered device.
+  /// Injects advertisement data into the live discovery list.
+  void handleAdvertisementData(
+    String deviceId,
+    String deviceName,
+    int rssi,
+  ) {
+    final existingIdx = _discoveredDevices.indexWhere((d) => d.id == deviceId);
+    final model = BleDeviceModel(
+      id: deviceId,
+      name: deviceName,
+      rssi: rssi,
+      isMock: false,
+    );
+
+    if (existingIdx >= 0) {
+      _discoveredDevices[existingIdx] = model;
+    } else {
+      _discoveredDevices.add(model);
+    }
+    _scanResultsController.add(List.unmodifiable(_discoveredDevices));
+  }
+
+  /// Connects to a real BLE peripheral discovered during the live scan.
   Future<bool> connect(String deviceId) async {
     final targetIdx = _discoveredDevices.indexWhere((d) => d.id == deviceId);
     if (targetIdx < 0) return false;
@@ -115,42 +119,29 @@ class BleService {
 
     await stopScan();
 
-    if (target.isMock) {
-      // Mock connection sequence
-      await Future.delayed(const Duration(milliseconds: 900));
-      _connectedDevice = target.copyWith(
-        connectionState: BleConnectionState.connected,
-        batteryLevel: target.batteryLevel ?? 88,
-      );
+    // Physical BLE connection
+    try {
+      final device = BluetoothDevice.fromId(deviceId);
+      await device.connect(timeout: const Duration(seconds: 8));
+      _connectedDevice = target.copyWith(connectionState: BleConnectionState.connected);
       _connectedDeviceController.add(_connectedDevice);
       return true;
-    } else {
-      // Physical BLE connection
-      try {
-        final device = BluetoothDevice.fromId(deviceId);
-        await device.connect(timeout: const Duration(seconds: 8));
-        _connectedDevice = target.copyWith(connectionState: BleConnectionState.connected);
-        _connectedDeviceController.add(_connectedDevice);
-        return true;
-      } catch (e) {
-        debugPrint('[SonicBLE] Failed to connect to physical peripheral ($e)');
-        _connectedDevice = null;
-        _connectedDeviceController.add(null);
-        return false;
-      }
+    } catch (e) {
+      debugPrint('[SonicBLE] Failed to connect to physical peripheral ($e)');
+      _connectedDevice = null;
+      _connectedDeviceController.add(null);
+      return false;
     }
   }
 
-  /// Disconnects from active device.
+  /// Disconnects from the active real BLE peripheral.
   Future<void> disconnect() async {
     if (_connectedDevice == null) return;
 
-    if (!_connectedDevice!.isMock) {
-      try {
-        final device = BluetoothDevice.fromId(_connectedDevice!.id);
-        await device.disconnect();
-      } catch (_) {}
-    }
+    try {
+      final device = BluetoothDevice.fromId(_connectedDevice!.id);
+      await device.disconnect();
+    } catch (_) {}
 
     _connectedDevice = null;
     _connectedDeviceController.add(null);

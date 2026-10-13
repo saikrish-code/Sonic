@@ -17,20 +17,20 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  // Local sensitivity sliders state
-  final Map<String, double> _categorySensitivities = {
-    'smoke_alarm': 0.65,
-    'doorbell': 0.70,
-    'baby_crying': 0.72,
-    'door_knock': 0.70,
-    'siren': 0.70,
-    'dog_bark': 0.72,
-  };
+  static const _targetKeys = [
+    'door_knock',
+    'coughing',
+    'baby_crying',
+    'dog_bark',
+    'cat_meow',
+    'footsteps',
+  ];
 
   @override
   Widget build(BuildContext context) {
     final isBackgroundActive = ref.watch(backgroundListeningProvider);
     final vibService = ref.read(vibrationServiceProvider);
+    final sensitivities = ref.watch(targetSensitivityProvider);
 
     return Scaffold(
       backgroundColor: SonicColors.background,
@@ -252,9 +252,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               border: Border.all(color: SonicColors.surfaceBorder),
             ),
             child: Column(
-              children: _categorySensitivities.entries.map((entry) {
-                final category = SoundCategories.getByKey(entry.key);
-                final currentVal = entry.value;
+              children: _targetKeys.map((key) {
+                final category = SoundCategories.getByKey(key);
+                final currentVal = sensitivities[key] ?? 0.70;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
@@ -294,9 +294,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         max: 0.95,
                         divisions: 9,
                         onChanged: (newVal) {
-                          setState(() {
-                            _categorySensitivities[entry.key] = newVal;
-                          });
+                          ref.read(targetSensitivityProvider.notifier).setThreshold(key, newVal);
                         },
                       ),
                     ],

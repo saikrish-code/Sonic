@@ -5,6 +5,15 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/sonic_colors.dart';
 import '../../live_monitor/presentation/widgets/waveform_widget.dart';
 
+const _visibleKeys = {
+  'door_knock',
+  'coughing',
+  'baby_crying',
+  'dog_bark',
+  'cat_meow',
+  'footsteps',
+};
+
 /// Debug screen displaying real-time 2D Log-Mel Spectrogram heatmap
 /// and class probability distribution across all 20 categories.
 class SpectrogramDebugScreen extends ConsumerWidget {
@@ -141,7 +150,7 @@ class SpectrogramDebugScreen extends ConsumerWidget {
 
             // Section 3: Model Probabilities Across 20 Categories
             const Text(
-              'General Classifier Confidence Scores (~20 Categories)',
+              'General Classifier Confidence Scores (6 Targets)',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -149,13 +158,17 @@ class SpectrogramDebugScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: SoundCategories.all.length,
-              itemBuilder: (context, index) {
-                final cat = SoundCategories.all[index];
+            Builder(
+              builder: (context) {
+                final visibleCats = SoundCategories.all
+                    .where((c) => _visibleKeys.contains(c.key))
+                    .toList();
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: visibleCats.length,
+                  itemBuilder: (context, index) {
+                    final cat = visibleCats[index];
                 final prob = probs[cat.key] ?? 0.0;
                 final isTop = latestDetection?.topCategoryKey == cat.key;
 
@@ -170,45 +183,47 @@ class SpectrogramDebugScreen extends ConsumerWidget {
                       width: isTop ? 1.5 : 1,
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(cat.icon, size: 18, color: isTop ? cat.color : SonicColors.textMuted),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              cat.label,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isTop ? FontWeight.w800 : FontWeight.w500,
-                                color: isTop ? Colors.white : SonicColors.textPrimary,
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(cat.icon, size: 18, color: isTop ? cat.color : SonicColors.textMuted),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                cat.label,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isTop ? FontWeight.w800 : FontWeight.w500,
+                                  color: isTop ? Colors.white : SonicColors.textPrimary,
+                                ),
                               ),
                             ),
-                          ),
-                          Text(
-                            '${(prob * 100).toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: isTop ? cat.color : SonicColors.textSecondary,
+                            Text(
+                              '${(prob * 100).toStringAsFixed(1)}%',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isTop ? cat.color : SonicColors.textSecondary,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: prob.clamp(0.0, 1.0),
-                          backgroundColor: SonicColors.surfaceLight,
-                          color: isTop ? cat.color : SonicColors.primary.withAlpha(120),
-                          minHeight: 4,
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                );
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: prob.clamp(0.0, 1.0),
+                            backgroundColor: SonicColors.surfaceLight,
+                            color: isTop ? cat.color : SonicColors.primary.withAlpha(120),
+                            minHeight: 4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
               },
             ),
           ],

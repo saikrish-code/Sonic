@@ -56,6 +56,14 @@ class SoundClassifier {
   bool _isInitialized = false;
   bool _useFallback = false;
   double _activeEventThreshold = eventThreshold;
+  Map<String, double> _targetThresholds = Map.of({
+    'door_knock': 0.70,
+    'coughing': 0.70,
+    'baby_crying': 0.70,
+    'dog_bark': 0.70,
+    'cat_meow': 0.70,
+    'footsteps': 0.70,
+  });
   final List<List<double>> _probHistory = [];
   final List<MapEntry<String, double>?> _eventHistory = [];
 
@@ -63,6 +71,15 @@ class SoundClassifier {
   bool get isUsingFallback => _useFallback;
   bool get hasNativeInterpreter => _interpreter != null;
   double get activeEventThreshold => _activeEventThreshold;
+
+  /// Per-target-class thresholds set from Settings. Values below the metadata
+  /// floor of 0.70 are clamped up on read; the metadata minimum stays in force.
+  void setTargetThresholds(Map<String, double> thresholds) {
+    _targetThresholds = Map.of(_targetThresholds)..addAll(thresholds);
+  }
+
+  double thresholdFor(String key) =>
+      (_targetThresholds[key] ?? _activeEventThreshold).clamp(0.70, 0.95).toDouble();
 
   void resetSmoothing() {
     _probHistory.clear();
@@ -279,9 +296,8 @@ class SoundClassifier {
       }
     }
 
-    final qualifiedCandidate = topProb >= _activeEventThreshold
-        ? MapEntry(topKey, topProb)
-        : null;
+    final qualifiedCandidate =
+        topProb >= thresholdFor(topKey) ? MapEntry(topKey, topProb) : null;
     _eventHistory.add(qualifiedCandidate);
     if (_eventHistory.length > eventAgreementWindow) {
       _eventHistory.removeAt(0);

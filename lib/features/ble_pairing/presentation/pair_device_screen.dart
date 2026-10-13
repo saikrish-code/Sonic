@@ -266,6 +266,79 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
             const SizedBox(height: 24),
 
             const Text(
+              'Previously Connected',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: SonicColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: SonicColors.cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: SonicColors.surfaceBorder),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: SonicColors.surfaceLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.bluetooth,
+                      color: SonicColors.textSecondary,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ESP32C3',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Last paired wearable',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: SonicColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: null,
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    ),
+                    child: Text('Pair'),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            const Text(
               'Discovered Devices',
               style: TextStyle(
                 fontSize: 15,
@@ -321,17 +394,13 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
                         Container(
                           width: 44,
                           height: 44,
-                          decoration: BoxDecoration(
-                            color: device.isMock
-                                ? SonicColors.primary.withAlpha(30)
-                                : SonicColors.surfaceLight,
+                          decoration: const BoxDecoration(
+                            color: SonicColors.surfaceLight,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            device.isMock ? Icons.hearing : Icons.bluetooth,
-                            color: device.isMock
-                                ? SonicColors.primary
-                                : SonicColors.textSecondary,
+                          child: const Icon(
+                            Icons.bluetooth,
+                            color: SonicColors.textSecondary,
                             size: 22,
                           ),
                         ),
@@ -340,42 +409,15 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      device.name,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (device.isMock) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: SonicColors.primary.withAlpha(35),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Text(
-                                        'PROTOTYPE',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                          color: SonicColors.primary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                              Text(
+                                device.name,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 3),
                               Text(
